@@ -1,0 +1,92 @@
+{
+  "metadata": {
+    "title": "DOD Platform",
+    "description": "AI-powered alert processing platform"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "confirm": "Confirm",
+    "loading": "Loading...",
+    "submit": "Submit",
+    "close": "Close",
+    "back": "Back",
+    "search": "Search",
+    "filter": "Filter",
+    "export": "Export",
+    "refresh": "Refresh",
+    "view": "View",
+    "create": "Create",
+    "update": "Update",
+    "actions": "Actions",
+    "status": "Status",
+    "createdAt": "Created At",
+    "updatedAt": "Updated At"
+  },
+  "nav": {
+    "alerts": "Alerts",
+    "issues": "Issues",
+    "skills": "Skills",
+    "tools": "Tools",
+    "settings": "Settings"
+  },
+  "alerts": {
+    "title": "Alert List",
+    "description": "View and manage system alerts",
+    "search": "Search",
+    "id": "ID",
+    "severity": "Severity",
+    "status": "Status",
+    "source": "Source",
+    "message": "Message",
+    "triggeredAt": "Triggered At",
+    "resolvedAt": "Resolved At",
+    "assignedTo": "Assigned To",
+    "aiAnalysis": "AI Analysis",
+    "severityLevels": {
+      "critical": "Critical",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    },
+    "statuses": {
+      "open": "Open",
+      "investigating": "Investigating",
+      "resolved": "Resolved",
+      "falsePositive": "False Positive",
+      "ignored": "Ignored"
+    },
+    "viewDetails": "View Details",
+    "assignToMe": "Assign to Me",
+    "markAsResolved": "Mark as Resolved",
+    "markAsFalsePositive": "Mark as False Positive",
+    "viewAIAnalysis": "View AI Analysis",
+    "noAlerts": "No alerts",
+    "filterBySeverity": "Filter by severity",
+    "filterByStatus": "Filter by status",
+    "filterBySource": "Filter by source"
+  },
+  "auth": {
+    "signIn": "Sign In",
+    "signUp": "Sign Up",
+    "signOut": "Sign Out",
+    "email": "Email",
+    "password": "Password",
+    "name": "Name",
+    "confirmPassword": "Confirm Password",
+    "loading": "Loading...",
+    "or": "or",
+    "signInWithGoogle": "Sign in with Google",
+    "signUpWithGoogle": "Sign up with Google",
+    "noAccount": "Don't have an account?",
+    "hasAccount": "Already have an account?",
+    "passwordMismatch": "Passwords do not match",
+    "passwordTooShort": "Password must be at least 6 characters",
+    "signInError": "Sign in failed, please check your email and password",
+    "signUpError": "Sign up failed, please try again later",
+    "checkYourEmail": "Check your email",
+    "emailConfirmationSent": "We've sent you a confirmation email, please click the link in the email to complete registration."
+  }
+}

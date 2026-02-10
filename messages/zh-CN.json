@@ -1,0 +1,92 @@
+{
+  "metadata": {
+    "title": "DOD Platform",
+    "description": "AI 驱动的告警处理平台"
+  },
+  "common": {
+    "save": "保存",
+    "cancel": "取消",
+    "delete": "删除",
+    "edit": "编辑",
+    "confirm": "确认",
+    "loading": "加载中...",
+    "submit": "提交",
+    "close": "关闭",
+    "back": "返回",
+    "search": "搜索",
+    "filter": "筛选",
+    "export": "导出",
+    "refresh": "刷新",
+    "view": "查看",
+    "create": "新建",
+    "update": "更新",
+    "actions": "操作",
+    "status": "状态",
+    "createdAt": "创建时间",
+    "updatedAt": "更新时间"
+  },
+  "nav": {
+    "alerts": "告警",
+    "issues": "问题",
+    "skills": "技能",
+    "tools": "工具",
+    "settings": "设置"
+  },
+  "alerts": {
+    "title": "告警列表",
+    "description": "查看和管理系统告警",
+    "search": "搜索",
+    "id": "ID",
+    "severity": "严重级别",
+    "status": "状态",
+    "source": "来源",
+    "message": "消息",
+    "triggeredAt": "触发时间",
+    "resolvedAt": "解决时间",
+    "assignedTo": "分配给",
+    "aiAnalysis": "AI 分析",
+    "severityLevels": {
+      "critical": "严重",
+      "high": "高",
+      "medium": "中",
+      "low": "低"
+    },
+    "statuses": {
+      "open": "待处理",
+      "investigating": "调查中",
+      "resolved": "已解决",
+      "falsePositive": "误报",
+      "ignored": "已忽略"
+    },
+    "viewDetails": "查看详情",
+    "assignToMe": "分配给我",
+    "markAsResolved": "标记为已解决",
+    "markAsFalsePositive": "标记为误报",
+    "viewAIAnalysis": "查看 AI 分析",
+    "noAlerts": "暂无告警",
+    "filterBySeverity": "按严重级别筛选",
+    "filterByStatus": "按状态筛选",
+    "filterBySource": "按来源筛选"
+  },
+  "auth": {
+    "signIn": "登录",
+    "signUp": "注册",
+    "signOut": "退出",
+    "email": "邮箱",
+    "password": "密码",
+    "name": "姓名",
+    "confirmPassword": "确认密码",
+    "loading": "加载中...",
+    "or": "或",
+    "signInWithGoogle": "使用 Google 登录",
+    "signUpWithGoogle": "使用 Google 注册",
+    "noAccount": "还没有账号？",
+    "hasAccount": "已有账号？",
+    "passwordMismatch": "两次输入的密码不一致",
+    "passwordTooShort": "密码长度至少为 6 位",
+    "signInError": "登录失败，请检查邮箱和密码",
+    "signUpError": "注册失败，请稍后重试",
+    "checkYourEmail": "请查看您的邮箱",
+    "emailConfirmationSent": "我们已向您发送了一封确认邮件，请点击邮件中的链接完成注册。"
+  }
+}
