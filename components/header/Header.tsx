@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ChevronDown, Settings, Menu, X, Activity, Wrench } from 'lucide-react';
+import { ChevronDown, Settings, Menu, X, Activity, Wrench, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import AuthButton from '@/components/auth/AuthButton';
 
@@ -27,11 +27,7 @@ export default function Header() {
       id: 'issues',
       label: t('issues'),
       href: `/${locale}/issues`,
-      icon: null,
-      children: [
-        { id: 'all', label: 'All Issues', href: `/${locale}/issues` },
-        { id: 'my', label: 'My Issues', href: `/${locale}/issues?filter=my` },
-      ],
+      icon: FileText,
     },
     {
       id: 'skills',
@@ -44,14 +40,6 @@ export default function Header() {
       label: t('tools'),
       href: `/${locale}/tools`,
       icon: Wrench,
-      children: [
-        { id: 'list', label: 'Tool List', href: `/${locale}/tools` },
-        {
-          id: 'custom',
-          label: 'Custom Tools',
-          href: `/${locale}/tools/custom`,
-        },
-      ],
     },
     {
       id: 'settings',
