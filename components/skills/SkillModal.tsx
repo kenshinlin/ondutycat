@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Lightbulb, AlertCircle, FileText } from "lucide-react";
+import { X, Lightbulb, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
+import { SOPEditor } from "./SOPEditor";
 
 type SkillStatus = "active" | "inactive";
 
@@ -15,11 +16,18 @@ interface Skill {
   status: SkillStatus;
 }
 
+interface Tool {
+  id: string;
+  name: string;
+  description?: string;
+}
+
 interface SkillModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (skill: Partial<Skill>) => void;
   skill?: Skill | null;
+  availableTools?: Tool[];
 }
 
 interface FormData {
@@ -36,7 +44,7 @@ const initialFormData: FormData = {
   status: "active",
 };
 
-export function SkillModal({ isOpen, onClose, onSave, skill }: SkillModalProps) {
+export function SkillModal({ isOpen, onClose, onSave, skill, availableTools = [] }: SkillModalProps) {
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -178,37 +186,17 @@ export function SkillModal({ isOpen, onClose, onSave, skill }: SkillModalProps) 
             </div>
 
             {/* SOP (Standard Operating Procedure) */}
-            <div>
-              <label className="block text-sm font-medium text-card-foreground mb-1.5">
-                Standard Operating Procedure (SOP) <span className="text-red-500">*</span>
-              </label>
-              <textarea
-                value={formData.sop}
-                onChange={(e) => {
-                  setFormData((prev) => ({ ...prev, sop: e.target.value }));
-                  if (errors.sop)
-                    setErrors((prev) => ({ ...prev, sop: "" }));
-                }}
-                placeholder="Define the step-by-step procedure for handling this type of issue..."
-                rows={8}
-                className={cn(
-                  "w-full px-3 py-2 bg-background border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none font-mono",
-                  errors.sop ? "border-red-500" : "border-border",
-                )}
-              />
-              {errors.sop && (
-                <p className="mt-1 text-xs text-red-500 flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" />
-                  {errors.sop}
-                </p>
-              )}
-              <div className="mt-1.5 flex items-start gap-2">
-                <FileText className="w-3.5 h-3.5 text-muted-foreground mt-0.5" />
-                <p className="text-xs text-muted-foreground">
-                  The AI agent will follow these steps when processing matching alerts
-                </p>
-              </div>
-            </div>
+            <SOPEditor
+              value={formData.sop}
+              onChange={(value) => {
+                setFormData((prev) => ({ ...prev, sop: value }));
+                if (errors.sop)
+                  setErrors((prev) => ({ ...prev, sop: "" }));
+              }}
+              placeholder="Define the step-by-step procedure for handling this type of issue..."
+              error={errors.sop}
+              availableTools={availableTools}
+            />
 
             {/* Status */}
             <div>

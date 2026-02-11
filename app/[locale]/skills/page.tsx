@@ -23,6 +23,12 @@ import { SkillModal } from '@/components/skills/SkillModal';
 
 type SkillStatus = 'active' | 'inactive';
 
+interface Tool {
+  id: string;
+  name: string;
+  description?: string;
+}
+
 interface Skill {
   id: string;
   name: string;
@@ -86,6 +92,44 @@ const mockSkills: Skill[] = [
     createdBy: 'admin@example.com',
     createdAt: '2025-01-13T14:00:00Z',
     updatedAt: '2025-01-14T08:00:00Z',
+  },
+];
+
+const mockTools: Tool[] = [
+  {
+    id: 'tool-001',
+    name: 'Prometheus_Query',
+    description: 'Query Prometheus metrics and alerts',
+  },
+  {
+    id: 'tool-002',
+    name: 'Database_Health_Check',
+    description: 'Check database connection and run health queries',
+  },
+  {
+    id: 'tool-003',
+    name: 'Log_Analyzer',
+    description: 'Analyze log files for patterns and errors',
+  },
+  {
+    id: 'tool-004',
+    name: 'API_Check',
+    description: 'Check API endpoint health and response times',
+  },
+  {
+    id: 'tool-005',
+    name: 'Network_Diagnostic',
+    description: 'Run network diagnostics and connectivity tests',
+  },
+  {
+    id: 'tool-006',
+    name: 'Container_Inspect',
+    description: 'Inspect container status and logs',
+  },
+  {
+    id: 'tool-007',
+    name: 'Process_Monitor',
+    description: 'Monitor system processes and resource usage',
   },
 ];
 
@@ -321,6 +365,7 @@ export default function SkillsPage() {
         onClose={() => setIsModalOpen(false)}
         onSave={handleSaveSkill}
         skill={editingSkill}
+        availableTools={mockTools}
       />
     </div>
   );
