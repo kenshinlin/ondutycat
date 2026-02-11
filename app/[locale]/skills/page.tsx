@@ -303,7 +303,7 @@ export default function SkillsPage() {
                       <FileText className="w-3.5 h-3.5 text-blue-500" />
                       <span className="text-xs font-medium text-muted-foreground">SOP</span>
                     </div>
-                    <p className="text-xs text-muted-foreground line-clamp-3 font-mono bg-gray-50/50 p-2 rounded">
+                    <p className="text-xs text-muted-foreground line-clamp-3 font-mono bg-gray-50/50 p-2 rounded overflow-hidden">
                       {skill.sop}
                     </p>
                   </div>
