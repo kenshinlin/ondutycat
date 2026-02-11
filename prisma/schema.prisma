@@ -1,0 +1,351 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== Enums ====================
+
+enum TenantStatus {
+  active
+  suspended
+  deleted
+}
+
+enum UserRole {
+  admin
+  member
+  viewer
+}
+
+enum UserStatus {
+  active
+  inactive
+}
+
+enum AlertSeverity {
+  critical
+  high
+  medium
+  low
+}
+
+enum AlertStatus {
+  open
+  investigating
+  resolved
+  false_positive
+  ignored
+}
+
+enum IssueStatus {
+  analyzing
+  in_progress
+  resolved
+  false_positive
+  unable_to_resolve
+}
+
+enum SkillStatus {
+  active
+  inactive
+}
+
+enum ToolStatus {
+  active
+  inactive
+}
+
+enum ToolType {
+  mcp
+  custom_code
+}
+
+enum IssueLogType {
+  skill_matched
+  tool_called
+  reasoning
+  conclusion
+}
+
+enum IMType {
+  slack
+  lark
+}
+
+enum IMReceiverStatus {
+  active
+  inactive
+}
+
+// ==================== Models ====================
+
+/// Multi-tenancy support table
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String   @db.VarChar(255)
+  status    TenantStatus @default(active)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  users               User[]
+  alerts              Alert[]
+  issues              Issue[]
+  skills              Skill[]
+  tools               Tool[]
+  configurations      Configuration[]
+  alertSkillBindings  AlertSkillBinding[]
+  issueAlertBindings  IssueAlertBinding[]
+  imReceivers         IMReceiver[]
+
+  @@map("tenants")
+}
+
+/// Platform users table (integrates with Supabase Auth)
+model User {
+  id            String      @id @default(uuid())
+  tenantId      String      @map("tenant_id")
+  email         String      @unique @db.VarChar(255)
+  name          String?     @db.VarChar(255)
+  avatarUrl     String?     @map("avatar_url") @db.VarChar(500)
+  role          UserRole    @default(member)
+  status        UserStatus  @default(active)
+  lastSignInAt  DateTime?   @map("last_sign_in_at")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  // Relations
+  tenant                  Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assignedAlerts          Alert[]             @relation("AssignedAlerts")
+  resolvedAlerts          Alert[]             @relation("ResolvedAlerts")
+  assignedIssues          Issue[]             @relation("AssignedIssues")
+  createdIssues           Issue[]             @relation("CreatedIssues")
+  createdSkills           Skill[]             @relation("CreatedSkills")
+  createdTools            Tool[]              @relation("CreatedTools")
+
+  @@index([tenantId])
+  @@index([email])
+  @@index([status])
+  @@map("dod_user")
+}
+
+/// Stores incoming alert records from monitoring systems
+model Alert {
+  id           String       @id @default(uuid())
+  tenantId     String       @map("tenant_id")
+  receiverId   String?      @map("receiver_id")
+  assignedTo   String?      @map("assigned_to")
+  resolvedBy   String?      @map("resolved_by")
+  source       String       @db.VarChar(100)
+  alertType    String       @map("alert_type") @db.VarChar(255)
+  severity     AlertSeverity
+  title        String       @db.VarChar(500)
+  description  String?
+  rawPayload   Json?        @map("raw_payload")
+  status       AlertStatus  @default(open)
+  receivedAt   DateTime     @default(now()) @map("received_at")
+  resolvedAt   DateTime?    @map("resolved_at")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  tenant             Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  receiver           IMReceiver?            @relation(fields: [receiverId], references: [id], onDelete: SetNull)
+  assignedUser       User?                  @relation("AssignedAlerts", fields: [assignedTo], references: [id], onDelete: SetNull)
+  resolvedByUser     User?                  @relation("ResolvedAlerts", fields: [resolvedBy], references: [id], onDelete: SetNull)
+  issueAlertBindings IssueAlertBinding[]
+
+  @@index([tenantId])
+  @@index([receiverId])
+  @@index([assignedTo])
+  @@index([status])
+  @@index([receivedAt(sort: Desc)])
+  @@map("alerts")
+}
+
+/// Issues created from alerts for AI processing and tracking
+model Issue {
+  id            String       @id @default(uuid())
+  tenantId      String       @map("tenant_id")
+  assignedTo    String?      @map("assigned_to")
+  createdBy     String?      @map("created_by")
+  skillId       String?      @map("skill_id")
+  title         String       @db.VarChar(500)
+  description   String?
+  status        IssueStatus  @default(analyzing)
+  aiConclusion  String?      @map("ai_conclusion")
+  isRealIssue   Boolean?     @map("is_real_issue")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+  resolvedAt    DateTime?    @map("resolved_at")
+
+  // Relations
+  tenant             Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assignedUser       User?                  @relation("AssignedIssues", fields: [assignedTo], references: [id], onDelete: SetNull)
+  creator            User?                  @relation("CreatedIssues", fields: [createdBy], references: [id], onDelete: SetNull)
+  skill              Skill?                 @relation(fields: [skillId], references: [id], onDelete: SetNull)
+  issueAlertBindings IssueAlertBinding[]
+  issueLogs          IssueLog[]
+
+  @@index([tenantId])
+  @@index([assignedTo])
+  @@index([createdBy])
+  @@index([skillId])
+  @@index([status])
+  @@map("issues")
+}
+
+/// Bindings between issues and alerts (one-to-many relationship)
+model IssueAlertBinding {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  issueId   String   @map("issue_id")
+  alertId   String   @map("alert_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  issue  Issue  @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  alert  Alert  @relation(fields: [alertId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([issueId])
+  @@index([alertId])
+  @@map("issue_alert_bindings")
+}
+
+/// Logs of AI processing steps for each issue
+model IssueLog {
+  id        String        @id @default(uuid())
+  issueId   String        @map("issue_id")
+  logType   IssueLogType  @map("log_type")
+  content   String
+  metadata  Json?
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  // Relations
+  issue Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@index([issueId])
+  @@index([createdAt(sort: Desc)])
+  @@map("issue_logs")
+}
+
+/// Stores problem-solving SOPs (Standard Operating Procedures)
+model Skill {
+  id                 String       @id @default(uuid())
+  tenantId           String       @map("tenant_id")
+  createdBy          String?      @map("created_by")
+  name               String       @db.VarChar(255)
+  problemDescription String       @map("problem_description")
+  sop                String
+  status             SkillStatus  @default(active)
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  tenant             Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  creator            User?                @relation("CreatedSkills", fields: [createdBy], references: [id], onDelete: SetNull)
+  issues             Issue[]
+  alertSkillBindings AlertSkillBinding[]
+
+  @@index([tenantId])
+  @@index([createdBy])
+  @@index([status])
+  @@map("skills")
+}
+
+/// Stores tools that can be called by the AI agent
+model Tool {
+  id          String     @id @default(uuid())
+  tenantId    String     @map("tenant_id")
+  createdBy   String?    @map("created_by")
+  name        String     @db.VarChar(255)
+  description String?
+  type        ToolType
+  config      Json
+  status      ToolStatus @default(active)
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  // Relations
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  creator  User?  @relation("CreatedTools", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@index([createdBy])
+  @@index([name])
+  @@index([status])
+  @@map("tools")
+}
+
+/// Manual bindings between alerts and skills
+model AlertSkillBinding {
+  id           String   @id @default(uuid())
+  tenantId     String   @map("tenant_id")
+  alertPattern String   @map("alert_pattern") @db.VarChar(500)
+  skillId      String   @map("skill_id")
+  priority     Int      @default(0)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Relations
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  skill  Skill  @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([skillId])
+  @@index([priority(sort: Desc)])
+  @@map("alert_skill_bindings")
+}
+
+/// Platform configuration settings (IM tools, API keys, etc.)
+model Configuration {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  configType  String   @map("config_type") @db.VarChar(100)
+  configKey   String   @map("config_key") @db.VarChar(255)
+  configValue String   @map("config_value")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, configType, configKey])
+  @@index([tenantId])
+  @@index([configType, configKey])
+  @@map("configurations")
+}
+
+/// Configuration for IM bot receivers (Slack/Lark) in groups/channels
+model IMReceiver {
+  id             String           @id @default(uuid())
+  tenantId       String           @map("tenant_id")
+  name           String           @db.VarChar(255)
+  receiverIm     String           @unique @map("receiver_im") @db.VarChar(100)
+  imType         IMType           @map("im_type")
+  botToken       String?          @map("bot_token")
+  webhookUrl     String?          @map("webhook_url") @db.VarChar(500)
+  destinationId  String?          @map("destination_id") @db.VarChar(255)
+  status         IMReceiverStatus @default(active)
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  // Relations
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  alerts Alert[]
+
+  @@unique([tenantId, receiverIm])
+  @@index([tenantId])
+  @@index([receiverIm])
+  @@index([status])
+  @@map("im_receivers")
+}

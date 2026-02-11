@@ -4,17 +4,15 @@ import { useState } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ChevronDown, User, LogOut, Settings, Menu, X, Activity, Wrench } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
+import { ChevronDown, Settings, Menu, X, Activity, Wrench } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import AuthButton from '@/components/auth/AuthButton';
 
 export default function Header() {
   const t = useTranslations('nav');
   const locale = useLocale();
   const pathname = usePathname();
-  const { user, signOut, loading } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
 
   // Menu items with submenu support
@@ -80,19 +78,6 @@ export default function Header() {
     return pathname === href || pathname.startsWith(href + '/');
   };
 
-  const handleSignOut = async () => {
-    await signOut();
-    setIsUserMenuOpen(false);
-  };
-
-  if (loading) {
-    return (
-      <header className="sticky top-0 z-50 w-full border-b border-gray-200 bg-white h-15 flex items-center justify-center">
-        <div className="animate-pulse h-4 w-32 bg-gray-200 rounded"></div>
-      </header>
-    );
-  }
-
   return (
     <header className="sticky top-0 z-50 w-full border-b border-gray-200 bg-white">
       <div className="container mx-auto flex h-15 items-center px-4">
@@ -154,56 +139,8 @@ export default function Header() {
 
         {/* Right Side */}
         <div className="flex items-center space-x-2 ml-auto">
-          {/* User Menu */}
-          <div className="relative">
-            <button
-              onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-              className="flex items-center space-x-2 p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
-            >
-              {user?.user_metadata?.avatar_url ? (
-                <img
-                  src={user.user_metadata.avatar_url}
-                  alt={user.user_metadata.name || 'User'}
-                  className="h-7 w-7 rounded-full"
-                />
-              ) : (
-                <div className="h-7 w-7 rounded-lg bg-blue-50 flex items-center justify-center">
-                  <User className="h-4 w-4 text-blue-600" />
-                </div>
-              )}
-            </button>
-
-            {/* User Dropdown */}
-            {isUserMenuOpen && (
-              <div className="absolute right-0 mt-1 w-56 rounded-md shadow-lg bg-white border border-gray-200">
-                <div className="px-4 py-3 border-b border-gray-200">
-                  <p className="text-sm font-medium text-gray-900">
-                    {user?.user_metadata?.name || 'User'}
-                  </p>
-                  <p className="text-sm text-gray-500 truncate">
-                    {user?.email}
-                  </p>
-                </div>
-                <div className="py-1">
-                  <Link
-                    href={`/${locale}/settings`}
-                    className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    onClick={() => setIsUserMenuOpen(false)}
-                  >
-                    <Settings className="h-4 w-4 mr-2" />
-                    Settings
-                  </Link>
-                  <button
-                    onClick={handleSignOut}
-                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  >
-                    <LogOut className="h-4 w-4 mr-2" />
-                    Sign Out
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+          {/* Auth Button */}
+          <AuthButton />
 
           {/* Mobile Menu Button */}
           <button

@@ -14,11 +14,15 @@ interface AuthUser extends User {
   };
 }
 
+interface SignUpResponse {
+  requiresEmailConfirmation: boolean;
+}
+
 interface AuthContextType {
   user: AuthUser | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, name?: string) => Promise<void>;
+  signUp: (email: string, password: string, name?: string) => Promise<SignUpResponse>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -59,8 +63,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signUp = async (email: string, password: string, name?: string) => {
-    const { error } = await supabase.auth.signUp({
+  const signUp = async (email: string, password: string, name?: string): Promise<SignUpResponse> => {
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -73,6 +77,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) {
       throw error;
     }
+
+    // Check if email confirmation is required
+    // Supabase returns null user when email confirmation is required
+    return {
+      requiresEmailConfirmation: data.user === null,
+    };
   };
 
   const signInWithGoogle = async () => {

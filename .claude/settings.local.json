@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(yarn add:*)",
+      "Bash(npx prisma generate:*)",
+      "Bash(yarn remove:*)",
+      "Bash(npx tsc:*)",
+      "Bash(test:*)",
+      "Bash(yarn prisma migrate:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}
