@@ -303,13 +303,14 @@ export default function SkillsPage() {
                       <FileText className="w-3.5 h-3.5 text-blue-500" />
                       <span className="text-xs font-medium text-muted-foreground">SOP</span>
                     </div>
-                    <p className="text-xs text-muted-foreground font-mono bg-gray-50/50 p-2 rounded overflow-hidden text-ellipsis whitespace-pre-wrap" style={{
-                      display: '-webkit-box',
-                      WebkitLineClamp: 3,
-                      WebkitBoxOrient: 'vertical',
-                    }}>
-                      {skill.sop}
-                    </p>
+                    <div className="text-xs text-muted-foreground font-mono bg-gray-50/50 p-2 rounded overflow-hidden">
+                      <div className="overflow-hidden" style={{
+                        maxHeight: '4.2em', // 3行文字的高度 (每行约1.4em)
+                        lineHeight: '1.4em',
+                      }}>
+                        {skill.sop}
+                      </div>
+                    </div>
                   </div>
                 </div>
 
