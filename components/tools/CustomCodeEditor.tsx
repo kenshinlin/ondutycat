@@ -245,7 +245,7 @@ export function CustomCodeEditor({ config, onChange, error }: CustomCodeEditorPr
             value={code}
             onChange={(e) => handleCodeChange(e.target.value)}
             placeholder={defaultCode}
-            rows={14}
+            rows={20}
             className="w-full px-3 py-3 bg-background text-sm font-mono focus:outline-none resize-none"
             spellCheck={false}
           />
@@ -296,7 +296,7 @@ export function CustomCodeEditor({ config, onChange, error }: CustomCodeEditorPr
   },
   "required": ["param1"]
 }`}
-            rows={8}
+            rows={12}
             className="w-full px-3 py-3 bg-background text-sm font-mono focus:outline-none resize-none"
             spellCheck={false}
           />

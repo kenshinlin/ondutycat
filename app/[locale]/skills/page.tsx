@@ -19,7 +19,7 @@ import {
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
-import { SkillModal } from '@/components/skills/SkillModal';
+import { SkillDrawer } from '@/components/skills/SkillDrawer';
 
 type SkillStatus = 'active' | 'inactive';
 
@@ -359,8 +359,8 @@ export default function SkillsPage() {
         )}
       </div>
 
-      {/* Skill Modal */}
-      <SkillModal
+      {/* Skill Drawer */}
+      <SkillDrawer
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSave={handleSaveSkill}

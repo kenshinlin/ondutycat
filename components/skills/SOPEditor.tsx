@@ -173,7 +173,7 @@ export function SOPEditor({ value, onChange, placeholder, error, availableTools 
         onKeyDown={handleKeyDown}
         suppressContentEditableWarning
         className={cn(
-          "w-full min-h-[200px] px-3 py-2 bg-background border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none font-mono whitespace-pre-wrap",
+          "w-full min-h-[400px] px-3 py-2 bg-background border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none font-mono whitespace-pre-wrap",
           error ? "border-red-500" : "border-border",
         )}
         style={{ outline: "none" }}

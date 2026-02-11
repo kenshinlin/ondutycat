@@ -20,7 +20,7 @@ import {
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
-import { ToolModal } from '@/components/tools/ToolModal';
+import { ToolDrawer } from '@/components/tools/ToolDrawer';
 
 type ToolType = 'mcp' | 'custom_code';
 type ToolStatus = 'active' | 'inactive';
@@ -345,8 +345,8 @@ export default function ToolsPage() {
         )}
       </div>
 
-      {/* Tool Modal */}
-      <ToolModal
+      {/* Tool Drawer */}
+      <ToolDrawer
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSave={handleSaveTool}
