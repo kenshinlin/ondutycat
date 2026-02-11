@@ -15,7 +15,6 @@ import {
   MoreVertical,
   X,
 } from 'lucide-react';
-import { Card, CardContent, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
@@ -190,84 +189,118 @@ export default function AlertsPage() {
         </div>
       </div>
 
-      {/* Alerts List */}
-      <div className="flex-1 overflow-y-auto p-6 bg-muted/30">
+      {/* Alerts Table */}
+      <div className="flex-1 overflow-y-auto bg-white">
         {filteredAlerts.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <Bell className="w-16 h-16 text-muted-foreground/20 mb-4" />
             <p className="text-muted-foreground">{t('noAlerts')}</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {filteredAlerts.map((alert) => {
-              const SeverityIcon = severityConfig[alert.severity].icon;
-              const statusConf = statusConfig[alert.status];
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="sticky top-0 bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Severity</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Message</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Triggered At</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned To</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">AI Analysis</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredAlerts.map((alert) => {
+                  const SeverityIcon = severityConfig[alert.severity].icon;
+                  const statusConf = statusConfig[alert.status];
 
-              return (
-                <Card key={alert.id} className="group hover:shadow-md transition-shadow">
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-4">
-                      {/* Severity Icon */}
-                      <div className={cn('flex-none p-2 rounded-lg border', severityConfig[alert.severity].bgClass)}>
-                        <SeverityIcon className={cn('w-5 h-5', severityConfig[alert.severity].color)} />
-                      </div>
+                  return (
+                    <tr key={alert.id} className="hover:bg-gray-50 transition-colors">
+                      {/* ID */}
+                      <td className="px-6 py-4 whitespace-nowrap text-xs font-mono text-gray-600">
+                        {alert.id}
+                      </td>
 
-                      {/* Content */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-4 mb-2">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-xs font-mono text-muted-foreground">{alert.id}</span>
-                              <Badge variant={statusConf.variant}>
-                                {statusConf.label}
-                              </Badge>
-                              <Badge variant="info">{alert.source}</Badge>
-                            </div>
-                            <p className="text-sm text-foreground leading-relaxed">{alert.message}</p>
+                      {/* Severity */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <div className={cn('p-1.5 rounded border', severityConfig[alert.severity].bgClass)}>
+                            <SeverityIcon className={cn('w-4 h-4', severityConfig[alert.severity].color)} />
                           </div>
-
-                          {/* Actions */}
-                          <div className="flex items-center gap-1">
-                            <button className="p-1.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
-                              <Eye className="w-4 h-4" />
-                            </button>
-                            <button className="p-1.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
-                              <MoreVertical className="w-4 h-4" />
-                            </button>
-                          </div>
+                          <span className={cn('text-sm font-medium capitalize', severityConfig[alert.severity].color)}>
+                            {alert.severity}
+                          </span>
                         </div>
+                      </td>
 
-                        {/* Metadata */}
-                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            <span>{new Date(alert.triggeredAt).toLocaleString()}</span>
-                          </div>
-                          {alert.assignedTo && (
-                            <div className="flex items-center gap-1">
-                              <User className="w-3 h-3" />
-                              <span>{alert.assignedTo}</span>
-                            </div>
-                          )}
+                      {/* Status */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <Badge variant={statusConf.variant}>{statusConf.label}</Badge>
+                      </td>
+
+                      {/* Message */}
+                      <td className="px-6 py-4">
+                        <p className="text-sm text-gray-900 max-w-md truncate">{alert.message}</p>
+                      </td>
+
+                      {/* Source */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <Badge variant="info">{alert.source}</Badge>
+                      </td>
+
+                      {/* Triggered At */}
+                      <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
+                        <div className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {new Date(alert.triggeredAt).toLocaleString()}
                         </div>
+                      </td>
 
-                        {/* AI Analysis */}
-                        {alert.aiAnalysis && (
-                          <div className="mt-3 p-3 bg-primary/5 border border-primary/20 rounded-lg">
-                            <div className="flex items-start gap-2">
-                              <div className="w-5 h-5 rounded bg-primary/10 flex items-center justify-center flex-none">
-                                <span className="text-xs font-medium text-primary">AI</span>
-                              </div>
-                              <p className="text-xs text-foreground leading-relaxed">{alert.aiAnalysis}</p>
-                            </div>
+                      {/* Assigned To */}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {alert.assignedTo ? (
+                          <div className="flex items-center gap-1">
+                            <User className="w-3 h-3" />
+                            {alert.assignedTo}
                           </div>
+                        ) : (
+                          <span className="text-gray-400">-</span>
                         )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+                      </td>
+
+                      {/* AI Analysis */}
+                      <td className="px-6 py-4">
+                        {alert.aiAnalysis ? (
+                          <div className="flex items-start gap-1 max-w-xs">
+                            <div className="w-4 h-4 rounded bg-blue-100 flex items-center justify-center flex-none mt-0.5">
+                              <span className="text-[10px] font-medium text-blue-600">AI</span>
+                            </div>
+                            <p className="text-xs text-gray-600 line-clamp-2">{alert.aiAnalysis}</p>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <button className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors">
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors">
+                            <MoreVertical className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
