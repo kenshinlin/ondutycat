@@ -58,14 +58,10 @@ export function Modal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      {closeOnBackdropClick ? (
-        <div
-          className="absolute inset-0 bg-black/50 animate-fade-in"
-          onClick={onClose}
-        />
-      ) : (
-        <div className="absolute inset-0 bg-black/50 animate-fade-in" />
-      )}
+      <div
+        className="absolute inset-0 bg-black/50 animate-fade-in"
+        onClick={closeOnBackdropClick ? onClose : undefined}
+      />
 
       {/* Modal */}
       <div
