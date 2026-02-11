@@ -1,8 +1,9 @@
 "use client";
 
-import { ReactNode, cloneElement, ReactElement } from "react";
+import { ReactNode, useEffect } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { lockScroll, unlockScroll } from "@/lib/scroll-lock";
 
 export interface ModalProps {
   isOpen: boolean;
@@ -12,7 +13,7 @@ export interface ModalProps {
   icon?: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
-  size?: "sm" | "md" | "lg" | "xl" | "2xl";
+  size?: "sm" | "md" | "lg" | "xl" | "2xl" | "3xl";
   showCloseButton?: boolean;
   closeOnBackdropClick?: boolean;
 }
@@ -38,6 +39,20 @@ export function Modal({
   showCloseButton = true,
   closeOnBackdropClick = true,
 }: ModalProps) {
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      lockScroll();
+    } else {
+      unlockScroll();
+    }
+
+    // Cleanup on unmount
+    return () => {
+      unlockScroll();
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (

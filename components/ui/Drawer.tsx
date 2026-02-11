@@ -1,8 +1,9 @@
 "use client";
 
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { lockScroll, unlockScroll } from "@/lib/scroll-lock";
 
 export interface DrawerProps {
   isOpen: boolean;
@@ -39,6 +40,20 @@ export function Drawer({
   showCloseButton = true,
   closeOnBackdropClick = true,
 }: DrawerProps) {
+  // Lock body scroll when drawer is open
+  useEffect(() => {
+    if (isOpen) {
+      lockScroll();
+    } else {
+      unlockScroll();
+    }
+
+    // Cleanup on unmount
+    return () => {
+      unlockScroll();
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
