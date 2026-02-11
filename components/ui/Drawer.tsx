@@ -69,13 +69,13 @@ export function Drawer({
         className={cn(
           "relative h-full bg-white shadow-2xl overflow-hidden animate-slide-in flex flex-col",
           sizeClasses[size as keyof typeof sizeClasses] || sizeClasses.lg,
-          position === "right" ? "ml-auto" : "mr-auto"
+          position === "right" ? "ml-auto" : "mr-auto",
         )}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         {(title || description || icon || showCloseButton) && (
-          <div className="flex items-center justify-between px-6 py-4 border-b border-border flex-shrink-0">
+          <div className="flex items-center justify-between px-6 py-2 border-b border-border flex-shrink-0">
             <div className="flex items-center gap-3 flex-1 min-w-0">
               {icon && <div className="flex-shrink-0">{icon}</div>}
               <div className="flex-1 min-w-0">
@@ -109,7 +109,7 @@ export function Drawer({
 
         {/* Footer */}
         {footer && (
-          <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border bg-gray-50/50 flex-shrink-0">
+          <div className="flex items-center justify-end gap-3 px-6 py-2 border-t border-border bg-gray-50/50 flex-shrink-0">
             {footer}
           </div>
         )}
@@ -156,5 +156,7 @@ export interface DrawerFooterProps {
 }
 
 export function DrawerFooter({ children, className }: DrawerFooterProps) {
-  return <div className={cn("flex items-center gap-3", className)}>{children}</div>;
+  return (
+    <div className={cn("flex items-center gap-3", className)}>{children}</div>
+  );
 }
