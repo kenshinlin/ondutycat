@@ -71,7 +71,7 @@ export function Drawer({
       {/* Drawer */}
       <div
         className={cn(
-          "relative h-full bg-white shadow-2xl overflow-hidden animate-slide-in",
+          "relative h-full bg-white shadow-2xl overflow-hidden animate-slide-in flex flex-col",
           sizeClasses[size as keyof typeof sizeClasses] || sizeClasses.lg,
           position === "right" ? "ml-auto" : "mr-auto"
         )}
@@ -107,7 +107,7 @@ export function Drawer({
         )}
 
         {/* Content */}
-        <div className="overflow-y-auto flex-1">
+        <div className="overflow-y-auto flex-1 min-h-0">
           <div className="p-6">{children}</div>
         </div>
 

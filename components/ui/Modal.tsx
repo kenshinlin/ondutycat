@@ -70,14 +70,14 @@ export function Modal({
       {/* Modal */}
       <div
         className={cn(
-          "relative bg-white rounded-xl shadow-2xl w-full max-h-[90vh] overflow-hidden animate-scale-in",
+          "relative bg-white rounded-xl shadow-2xl w-full max-h-[90vh] overflow-hidden animate-scale-in flex flex-col",
           sizeClasses[size as keyof typeof sizeClasses] || sizeClasses["2xl"]
         )}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         {(title || description || icon || showCloseButton) && (
-          <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-border flex-shrink-0">
             <div className="flex items-center gap-3 flex-1 min-w-0">
               {icon && <div className="flex-shrink-0">{icon}</div>}
               <div className="flex-1 min-w-0">
@@ -105,13 +105,13 @@ export function Modal({
         )}
 
         {/* Content */}
-        <div className="overflow-y-auto max-h-[calc(90vh-140px)]">
+        <div className="overflow-y-auto flex-1 min-h-0">
           <div className="p-6">{children}</div>
         </div>
 
         {/* Footer */}
         {footer && (
-          <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border bg-gray-50/50">
+          <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border bg-gray-50/50 flex-shrink-0">
             {footer}
           </div>
         )}
