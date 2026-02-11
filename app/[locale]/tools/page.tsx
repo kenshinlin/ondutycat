@@ -312,7 +312,7 @@ export default function ToolsPage() {
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() => handleToggleStatus(tool)}
-                          className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+                          className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors cursor-pointer"
                           title={tool.status === 'active' ? 'Deactivate' : 'Activate'}
                         >
                           {tool.status === 'active' ? (
@@ -323,14 +323,14 @@ export default function ToolsPage() {
                         </button>
                         <button
                           onClick={() => handleEditTool(tool)}
-                          className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+                          className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors cursor-pointer"
                           title="Edit"
                         >
                           <Pencil className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDeleteTool(tool.id)}
-                          className="p-1.5 rounded hover:bg-red-50 text-gray-500 hover:text-red-600 transition-colors"
+                          className="p-1.5 rounded hover:bg-red-50 text-gray-500 hover:text-red-600 transition-colors cursor-pointer"
                           title="Delete"
                         >
                           <Trash2 className="w-4 h-4" />

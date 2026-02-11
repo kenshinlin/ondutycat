@@ -336,7 +336,7 @@ export default function SkillsPage() {
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => handleToggleStatus(skill)}
-                        className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+                        className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors cursor-pointer"
                         title={skill.status === 'active' ? 'Deactivate' : 'Activate'}
                       >
                         {skill.status === 'active' ? (
@@ -347,14 +347,14 @@ export default function SkillsPage() {
                       </button>
                       <button
                         onClick={() => handleEditSkill(skill)}
-                        className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+                        className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors cursor-pointer"
                         title="Edit"
                       >
                         <Pencil className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDeleteSkill(skill.id)}
-                        className="p-1.5 rounded hover:bg-red-50 text-gray-500 hover:text-red-600 transition-colors"
+                        className="p-1.5 rounded hover:bg-red-50 text-gray-500 hover:text-red-600 transition-colors cursor-pointer"
                         title="Delete"
                       >
                         <Trash2 className="w-4 h-4" />

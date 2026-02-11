@@ -60,7 +60,10 @@ export function Drawer({
     <div className="fixed inset-0 z-50 flex">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/50 animate-fade-in"
+        className={cn(
+          "absolute inset-0 bg-black/50 animate-fade-in",
+          closeOnBackdropClick && "cursor-pointer"
+        )}
         onClick={closeOnBackdropClick ? onClose : undefined}
       />
 
@@ -94,7 +97,7 @@ export function Drawer({
             {showCloseButton && (
               <button
                 onClick={onClose}
-                className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
+                className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors flex-shrink-0 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
