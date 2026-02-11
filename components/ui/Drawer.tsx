@@ -38,7 +38,7 @@ export function Drawer({
   size = "lg",
   position = "right",
   showCloseButton = true,
-  closeOnBackdropClick = true,
+  closeOnBackdropClick = false,
 }: DrawerProps) {
   // Lock body scroll when drawer is open
   useEffect(() => {

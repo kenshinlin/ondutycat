@@ -37,7 +37,7 @@ export function Modal({
   footer,
   size = "2xl",
   showCloseButton = true,
-  closeOnBackdropClick = true,
+  closeOnBackdropClick = false,
 }: ModalProps) {
   // Lock body scroll when modal is open
   useEffect(() => {
