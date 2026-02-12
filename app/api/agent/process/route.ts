@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
       } else {
         // Actual processing
         const tenantResults =
-          await agentOrchestrator.processTenantAlerts(tenantId);
+          await agentOrchestrator.processTenantAlerts(tenantAlerts);
         results[tenantId] = {
           processed: tenantResults.length,
           results: tenantResults,

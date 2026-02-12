@@ -1,13 +1,12 @@
-import { ChatAnthropic } from '@langchain/anthropic';
-import { HumanMessage, SystemMessage } from '@langchain/core/messages';
-import { prisma } from '@/lib/prisma';
-import { skillMatcher } from './skill-matcher';
-import { AgentTools } from './tools';
-import type {
-  AgentProcessingResult,
-  AgentLog,
-} from './types';
-import { Alert, IssueStatus } from '@prisma/client';
+import { ChatAnthropic } from "@langchain/anthropic";
+import { HumanMessage, SystemMessage } from "@langchain/core/messages";
+import { prisma } from "@/lib/prisma";
+import { skillMatcher } from "./skill-matcher";
+import type { AgentProcessingResult, AgentLog } from "./types";
+import { Alert, IssueStatus } from "@prisma/client";
+import { createAgent, DynamicTool } from "langchain";
+import { skillMiddleware } from "./middlewares/skill";
+import { MemorySaver } from "@langchain/langgraph";
 
 /**
  * Agent Orchestrator - Manages alert processing using LangChain agent
@@ -15,16 +14,20 @@ import { Alert, IssueStatus } from '@prisma/client';
 export class AgentOrchestrator {
   private model: ChatAnthropic | null = null;
 
+  private agent: ReturnType<typeof createAgent> | null = null;
+
   private getModel(): ChatAnthropic {
     if (!this.model) {
       const apiKey = process.env.ANTHROPIC_API_KEY;
 
       if (!apiKey) {
-        throw new Error('ANTHROPIC_API_KEY environment variable is required for agent processing');
+        throw new Error(
+          "ANTHROPIC_API_KEY environment variable is required for agent processing",
+        );
       }
 
       this.model = new ChatAnthropic({
-        model: 'claude-sonnet-4-5-20250929',
+        model: "claude-sonnet-4-5-20250929",
         temperature: 0,
         apiKey,
       });
@@ -33,66 +36,55 @@ export class AgentOrchestrator {
     return this.model;
   }
 
+  private getAgent(tools: DynamicTool[]) {
+    this.agent = createAgent({
+      model: this.model || this.getModel(),
+      tools,
+      systemPrompt:
+        "You are a SQL query assistant that helps users " +
+        "write queries against business databases.",
+      middleware: [skillMiddleware],
+      checkpointer: new MemorySaver(),
+    });
+
+    return this.agent;
+  }
+
   /**
    * Process alerts for a specific tenant
-   * Reads recent unprocessed alerts and analyzes them
+   * Analyzes the provided alerts and creates issues
    */
-  async processTenantAlerts(tenantId: string): Promise<AgentProcessingResult[]> {
-    // Step 1: Read recent unprocessed alerts (last 10 seconds)
-    const alerts = await this.getRecentAlerts(tenantId);
-
+  async processTenantAlerts(alerts: Alert[]): Promise<AgentProcessingResult[]> {
     if (alerts.length === 0) {
       return [];
     }
 
-    // Step 2: Match skill to alerts
-    const matchedSkill = alerts.length > 0
-      ? await skillMatcher.matchSkill(alerts[0])
-      : null;
+    // Step 1: Match skill to alerts
+    // const matchedSkill = await skillMatcher.matchSkill(alerts);
+    // const matchedSkills = await skillMatcher.allSkills(alerts[0].tenantId);
 
-    // Step 3: Get available tools for tenant
-    const tools = await this.getTenantTools(tenantId);
+    // Step 2: Get available tools for tenant
+    const tools = await this.getTenantTools(alerts[0].tenantId);
 
-    // Step 4: Run LangChain agent to analyze
-    const result = await this.runAgentAnalysis(alerts, matchedSkill, tools);
+    // Step 3: Run LangChain agent to analyze
+    const result = await this.invoke(alerts, tools);
 
-    // Step 5: Create issue and bindings
-    const issueId = await this.createIssue(alerts, matchedSkill, result);
+    // Step 4: Create issue and bindings
+    const issueId = await this.createIssue(alerts, matchedSkills, result);
 
-    // Step 6: Log all agent steps
+    // Step 5: Log all agent steps
     await this.logAgentSteps(issueId, result.logs);
 
-    return [{
-      issueId,
-      alertIds: alerts.map(a => a.id),
-      conclusion: result.conclusion,
-      isRealIssue: result.isRealIssue,
-      logs: result.logs,
-      errors: result.errors,
-    }];
-  }
-
-  /**
-   * Get recent unprocessed alerts from the last 10 seconds
-   */
-  private async getRecentAlerts(tenantId: string) {
-    const tenSecondsAgo = new Date(Date.now() - 10 * 1000);
-
-    const alerts = await prisma.alert.findMany({
-      where: {
-        tenantId,
-        status: 'open', // Only unprocessed alerts
-        receivedAt: {
-          gte: tenSecondsAgo,
-        },
+    return [
+      {
+        issueId,
+        alertIds: alerts.map((a) => a.id),
+        conclusion: result.conclusion,
+        isRealIssue: result.isRealIssue,
+        logs: result.logs,
+        errors: result.errors,
       },
-      orderBy: {
-        receivedAt: 'desc',
-      },
-      take: 50, // Limit to prevent overwhelming the agent
-    });
-
-    return alerts as Alert[];
+    ];
   }
 
   /**
@@ -102,7 +94,7 @@ export class AgentOrchestrator {
     const tools = await prisma.tool.findMany({
       where: {
         tenantId,
-        status: 'active',
+        status: "active",
       },
     });
 
@@ -112,17 +104,13 @@ export class AgentOrchestrator {
   /**
    * Run LangChain agent to analyze alerts
    */
-  private async runAgentAnalysis(
-    alerts: Alert[],
-    matchedSkill: any,
-    availableTools: any[]
-  ) {
+  private async invoke(alerts: Alert[], tools: DynamicTool[]) {
     const logs: AgentLog[] = [];
     const errors: string[] = [];
 
     try {
       // Build system prompt
-      const systemPrompt = this.buildSystemPrompt(matchedSkill);
+      const systemPrompt = this.buildSystemPrompt();
 
       // Build user message with alert context
       const userMessage = this.buildAlertContext(alerts);
@@ -133,81 +121,21 @@ export class AgentOrchestrator {
         new HumanMessage(userMessage),
       ];
 
-      // Track if skill was matched
-      if (matchedSkill) {
-        logs.push({
-          logType: 'skill_matched',
-          content: `Matched skill: ${matchedSkill.skill.name} (${matchedSkill.matchType})`,
-          metadata: {
-            skillId: matchedSkill.skill.id,
-            matchType: matchedSkill.matchType,
-            confidence: matchedSkill.confidence,
-          },
-        });
-      }
-
       // Invoke model with tools (if skill matched, include SOP)
       let response;
-      const tools = AgentTools.getAllTools();
 
-      if (matchedSkill) {
-        // Include skill SOP as additional context
-        const skillContext = `
-Available Skill SOP:
-Skill Name: ${matchedSkill.skill.name}
-Problem Description: ${matchedSkill.skill.problemDescription}
-SOP: ${matchedSkill.skill.sop}
-        `.trim();
-
-        messages.push(new HumanMessage(skillContext));
-      }
-
-      response = await this.getModel().invoke(messages);
-
-      // Process response
-      if (response.content && typeof response.content === 'string') {
-        const conclusion = this.extractConclusion(response.content);
-
-        logs.push({
-          logType: 'conclusion',
-          content: response.content,
-          metadata: { hasToolCalls: false },
-        });
-
-        return {
-          conclusion,
-          isRealIssue: this.determineIfRealIssue(response.content),
-          logs,
-          errors,
-        };
-      }
-
-      // Handle tool calls if present
-      // @ts-ignore - ToolMessage structure
-      if (response.tool_calls && response.tool_calls.length > 0) {
-        for (const toolCall of response.tool_calls) {
-          logs.push({
-            logType: 'tool_called',
-            content: `Called tool: ${toolCall.name}`,
-            metadata: { toolCall },
-          });
-
-          // Execute tool (in real implementation, you'd execute the actual tool)
-          // For now, just log it
-        }
-      }
+      response = await this.getAgent(tools).invoke(messages);
 
       // Get final response after tool execution
       return {
-        conclusion: 'Analysis completed with tool execution',
+        conclusion: "Analysis completed with tool execution",
         isRealIssue: null, // Needs manual review
         logs,
         errors,
       };
-
     } catch (error) {
-      console.error('Agent analysis error:', error);
-      errors.push(error instanceof Error ? error.message : 'Unknown error');
+      console.error("Agent analysis error:", error);
+      errors.push(error instanceof Error ? error.message : "Unknown error");
 
       return {
         conclusion: undefined,
@@ -221,34 +149,28 @@ SOP: ${matchedSkill.skill.sop}
   /**
    * Build system prompt for the agent
    */
-  private buildSystemPrompt(matchedSkill: any): string {
+  private buildSystemPrompt(): string {
     const basePrompt = `You are an AI assistant that analyzes monitoring alerts and determines if they represent real system issues that require attention.
 
-Your task:
+## Your task:
 1. Analyze the provided alerts
 2. Use available tools to gather more information if needed
 3. Determine if this is a real issue or a false positive
 4. Provide a clear conclusion with reasoning
 
-Available tools:
+## Available tools:
 - get_alert_details: Get detailed information about a specific alert
 - search_similar_alerts: Search for similar historical alerts
 - get_skill_sop: Get Standard Operating Procedure for matched skills
 - log_reasoning: Log your reasoning steps
 
-Response format:
+## Response format:
 Provide your analysis in this structure:
 **Analysis**: [Your analysis of the alerts]
 **Investigation Steps**: [Steps you took or recommend]
 **Conclusion**: [REAL_ISSUE | FALSE_POSITIVE | NEEDS_MORE_INFO]
 **Confidence**: [HIGH | MEDIUM | LOW]
 **Recommendation**: [What should be done next]`;
-
-    if (matchedSkill) {
-      return `${basePrompt}
-
-A skill has been matched to this alert. Use the get_skill_sop tool to retrieve the Standard Operating Procedure for handling this type of issue.`;
-    }
 
     return basePrompt;
   }
@@ -258,20 +180,22 @@ A skill has been matched to this alert. Use the get_skill_sop tool to retrieve t
    */
   private buildAlertContext(alerts: Alert[]): string {
     if (alerts.length === 0) {
-      return 'No alerts to analyze.';
+      return "No alerts to analyze.";
     }
 
-    const alertSummaries = alerts.map((alert, index) => {
-      return `Alert ${index + 1}:
+    const alertSummaries = alerts
+      .map((alert, index) => {
+        return `Alert ${index + 1}:
 - ID: ${alert.id}
 - Title: ${alert.title}
 - Type: ${alert.alertType}
 - Severity: ${alert.severity}
-- Description: ${alert.description || 'No description'}
+- Description: ${alert.description || "No description"}
 - Source: ${alert.source}
 - Received: ${alert.receivedAt.toISOString()}
-${alert.rawPayload ? `- Raw Data: ${JSON.stringify(alert.rawPayload)}` : ''}`;
-    }).join('\n\n');
+${alert.rawPayload ? `- Raw Data: ${JSON.stringify(alert.rawPayload)}` : ""}`;
+      })
+      .join("\n\n");
 
     return `Please analyze these ${alerts.length} alert(s):\n\n${alertSummaries}`;
   }
@@ -287,7 +211,7 @@ ${alert.rawPayload ? `- Raw Data: ${JSON.stringify(alert.rawPayload)}` : ''}`;
     }
 
     // Fallback: return last paragraph or summary
-    const paragraphs = response.split('\n\n');
+    const paragraphs = response.split("\n\n");
     return paragraphs[paragraphs.length - 1] || response;
   }
 
@@ -298,22 +222,31 @@ ${alert.rawPayload ? `- Raw Data: ${JSON.stringify(alert.rawPayload)}` : ''}`;
     const lower = response.toLowerCase();
 
     // Check for explicit conclusion markers
-    if (lower.includes('real_issue') || lower.includes('real issue')) {
+    if (lower.includes("real_issue") || lower.includes("real issue")) {
       return true;
     }
-    if (lower.includes('false_positive') || lower.includes('false positive')) {
+    if (lower.includes("false_positive") || lower.includes("false positive")) {
       return false;
     }
-    if (lower.includes('needs_more_info') || lower.includes('needs more info')) {
+    if (
+      lower.includes("needs_more_info") ||
+      lower.includes("needs more info")
+    ) {
       return null;
     }
 
     // Try to infer from content
-    const positiveIndicators = ['critical', 'high severity', 'service down', 'error', 'failure'];
-    const negativeIndicators = ['test', 'scheduled', 'expected', 'resolved'];
+    const positiveIndicators = [
+      "critical",
+      "high severity",
+      "service down",
+      "error",
+      "failure",
+    ];
+    const negativeIndicators = ["test", "scheduled", "expected", "resolved"];
 
-    const hasPositive = positiveIndicators.some(i => lower.includes(i));
-    const hasNegative = negativeIndicators.some(i => lower.includes(i));
+    const hasPositive = positiveIndicators.some((i) => lower.includes(i));
+    const hasNegative = negativeIndicators.some((i) => lower.includes(i));
 
     if (hasPositive && !hasNegative) return true;
     if (hasNegative && !hasPositive) return false;
@@ -327,7 +260,7 @@ ${alert.rawPayload ? `- Raw Data: ${JSON.stringify(alert.rawPayload)}` : ''}`;
   private async createIssue(
     alerts: Alert[],
     matchedSkill: Awaited<ReturnType<typeof skillMatcher.matchSkill>>,
-    result: { conclusion?: string; isRealIssue?: boolean }
+    result: { conclusion?: string; isRealIssue?: boolean },
   ): Promise<string> {
     // Create issue
     const issue = await prisma.issue.create({
@@ -344,7 +277,7 @@ ${alert.rawPayload ? `- Raw Data: ${JSON.stringify(alert.rawPayload)}` : ''}`;
 
     // Create alert bindings
     await prisma.issueAlertBinding.createMany({
-      data: alerts.map(alert => ({
+      data: alerts.map((alert) => ({
         tenantId: alert.tenantId,
         issueId: issue.id,
         alertId: alert.id,
@@ -354,10 +287,10 @@ ${alert.rawPayload ? `- Raw Data: ${JSON.stringify(alert.rawPayload)}` : ''}`;
     // Update alert statuses
     await prisma.alert.updateMany({
       where: {
-        id: { in: alerts.map(a => a.id) },
+        id: { in: alerts.map((a) => a.id) },
       },
       data: {
-        status: 'investigating',
+        status: "investigating",
       },
     });
 
@@ -372,7 +305,7 @@ ${alert.rawPayload ? `- Raw Data: ${JSON.stringify(alert.rawPayload)}` : ''}`;
       return alerts[0].title;
     }
 
-    const types = new Set(alerts.map(a => a.alertType));
+    const types = new Set(alerts.map((a) => a.alertType));
     if (types.size === 1) {
       return `${alerts.length}x ${Array.from(types)[0]} alerts`;
     }
@@ -384,7 +317,9 @@ ${alert.rawPayload ? `- Raw Data: ${JSON.stringify(alert.rawPayload)}` : ''}`;
    * Generate issue description from alerts
    */
   private generateIssueDescription(alerts: Alert[]): string {
-    const summary = alerts.map(a => `- ${a.title}: ${a.description || 'No description'}`).join('\n');
+    const summary = alerts
+      .map((a) => `- ${a.title}: ${a.description || "No description"}`)
+      .join("\n");
     return `Grouped alerts:\n${summary}`;
   }
 
@@ -392,19 +327,22 @@ ${alert.rawPayload ? `- Raw Data: ${JSON.stringify(alert.rawPayload)}` : ''}`;
    * Determine initial issue status from analysis result
    */
   private determineInitialStatus(isRealIssue: boolean | null): IssueStatus {
-    if (isRealIssue === true) return 'in_progress';
-    if (isRealIssue === false) return 'false_positive';
-    return 'analyzing';
+    if (isRealIssue === true) return "in_progress";
+    if (isRealIssue === false) return "false_positive";
+    return "analyzing";
   }
 
   /**
    * Log agent processing steps to database
    */
-  private async logAgentSteps(issueId: string, logs: AgentLog[]): Promise<void> {
+  private async logAgentSteps(
+    issueId: string,
+    logs: AgentLog[],
+  ): Promise<void> {
     if (logs.length === 0) return;
 
     await prisma.issueLog.createMany({
-      data: logs.map(log => ({
+      data: logs.map((log) => ({
         issueId,
         logType: log.logType,
         content: log.content,
