@@ -3,15 +3,14 @@ import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { prisma } from "@/lib/prisma";
 import type { AgentProcessingResult, AgentLog } from "./types";
 import { Alert, IssueStatus } from "@prisma/client";
-import { createAgent, DynamicTool } from "langchain";
+import { createAgent } from "langchain";
 import { skillMiddleware } from "./middlewares/skill";
 import { MemorySaver } from "@langchain/langgraph";
 import { xmlToJSON } from "../utils/xml";
 import { systemPrompt } from "./prompt";
 import { callMcp } from "./tools/call-mcp";
-import { loadMcpTools } from "./tools/load-mcp-tools";
 import { runCodeTool } from "./tools/run-code";
-import { loadToolConfigs } from "./tools/load-tool-configs";
+import { loadTool } from "./tools/load-tool";
 
 interface AnalysisResult {
   analysis?: {
@@ -58,7 +57,7 @@ export class AgentOrchestrator {
     if (!this.agent) {
       this.agent = createAgent({
         model: this.model || this.getModel(),
-        tools: [loadToolConfigs, loadMcpTools, callMcp, runCodeTool],
+        tools: [loadTool, callMcp, runCodeTool],
         systemPrompt: this.buildSystemPrompt(),
         middleware: [skillMiddleware],
         checkpointer: new MemorySaver(),

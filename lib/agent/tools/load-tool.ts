@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getMCPClient } from "../mcp-util";
 
-export const loadToolConfigs = tool(
+export const loadTool = tool(
   async ({ toolId, name }) => {
     if (!toolId || !name) {
       return "Error: toolId and name is required";
