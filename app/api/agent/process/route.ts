@@ -1,186 +1,147 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { agentOrchestrator } from '@/lib/agent/agent-orchestrator';
-import { prisma } from '@/lib/prisma';
+import { NextRequest, NextResponse } from "next/server";
+import { agentOrchestrator } from "@/lib/agent/agent-orchestrator";
+import { prisma } from "@/lib/prisma";
+import { Alert } from "@prisma/client";
 
 /**
  * API endpoint to trigger agent processing
  * Can be called by scheduled tasks to process recent alerts
  *
- * GET /api/agent/process - Process alerts for a specific tenant
+ * GET /api/agent/process - Process alerts for all tenants
  * Query params:
- *   - tenant_id (required): Tenant ID to process alerts for
- *   - dry_run (optional): If true, don't create issues, just simulate
+ *   - dry_run (optional): If true, don't create issues, just return alerts grouped by tenant
  *
  * Example:
- *   GET /api/agent/process?tenant_id=xxx-xxx-xxx
- *   GET /api/agent/process?tenant_id=xxx&dry_run=true
+ *   GET /api/agent/process
+ *   GET /api/agent/process?dry_run=true
  */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const tenantId = searchParams.get('tenant_id');
-    const dryRun = searchParams.get('dry_run') === 'true';
+    const dryRun = searchParams.get("dry_run") === "true";
 
-    // Validate tenant_id parameter
-    if (!tenantId) {
-      return NextResponse.json(
-        {
-          error: 'Missing required parameter: tenant_id',
-          usage: 'GET /api/agent/process?tenant_id=<tenant_id>&dry_run=<true|false>',
-        },
-        { status: 400 }
-      );
-    }
-
-    // Verify tenant exists
-    const tenant = await prisma.tenant.findUnique({
-      where: { id: tenantId },
-    });
-
-    if (!tenant) {
-      return NextResponse.json(
-        { error: 'Tenant not found', tenantId },
-        { status: 404 }
-      );
-    }
-
-    // Check if tenant is active
-    if (tenant.status !== 'active') {
-      return NextResponse.json(
-        {
-          error: 'Tenant is not active',
-          tenantId,
-          tenantStatus: tenant.status,
-        },
-        { status: 403 }
-      );
-    }
-
-    // Process alerts for this tenant
     const startTime = Date.now();
 
-    // If dry run, just read and return alerts without processing
-    if (dryRun) {
-      const alerts = await getRecentAlerts(tenantId);
-      const duration = Date.now() - startTime;
+    // Step 1: Get all recent alerts (last 10 seconds) across all tenants
+    const alerts = await getRecentAlerts();
 
+    if (alerts.length === 0) {
+      const duration = Date.now() - startTime;
       return NextResponse.json({
         success: true,
-        dryRun: true,
-        tenantId,
-        alertsFound: alerts.length,
-        alerts: alerts.map(a => ({
-          id: a.id,
-          title: a.title,
-          type: a.alertType,
-          severity: a.severity,
-          receivedAt: a.receivedAt,
-        })),
+        alertsFound: 0,
+        tenantsProcessed: 0,
         duration: `${duration}ms`,
       });
     }
 
-    // Actual processing
-    const results = await agentOrchestrator.processTenantAlerts(tenantId);
+    // Step 2: Group alerts by tenant_id
+    const alertsByTenant = groupAlertsByTenant(alerts);
+
+    // Step 3: Get all active tenants
+    const tenantIds = Object.keys(alertsByTenant);
+    const tenants = await prisma.tenant.findMany({
+      where: {
+        id: { in: tenantIds },
+        status: "active",
+      },
+      select: { id: true },
+    });
+
+    const activeTenantIds = new Set(tenants.map((t) => t.id));
+
+    // Step 4: Process each tenant's alerts
+    const results: Record<string, any> = {};
+    let totalProcessed = 0;
+    let totalSkipped = 0;
+
+    for (const [tenantId, tenantAlerts] of Object.entries(alertsByTenant)) {
+      if (!activeTenantIds.has(tenantId)) {
+        totalSkipped += tenantAlerts.length;
+        continue;
+      }
+
+      if (dryRun) {
+        // Dry run: just return alert summary
+        results[tenantId] = {
+          alertsFound: tenantAlerts.length,
+          alerts: tenantAlerts.map((a: Alert) => ({
+            id: a.id,
+            title: a.title,
+            type: a.alertType,
+            severity: a.severity,
+            receivedAt: a.receivedAt,
+          })),
+        };
+      } else {
+        // Actual processing
+        const tenantResults =
+          await agentOrchestrator.processTenantAlerts(tenantId);
+        results[tenantId] = {
+          processed: tenantResults.length,
+          results: tenantResults,
+        };
+        totalProcessed += tenantResults.length;
+      }
+    }
+
     const duration = Date.now() - startTime;
 
     return NextResponse.json({
       success: true,
-      tenantId,
-      processed: results.length,
+      dryRun,
+      alertsFound: alerts.length,
+      tenantsProcessed: Object.keys(results).length,
+      totalSkipped,
+      totalProcessed,
       results,
       duration: `${duration}ms`,
     });
   } catch (error) {
-    console.error('Agent processing error:', error);
+    console.error("Agent processing error:", error);
     return NextResponse.json(
       {
-        error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Unknown error',
+        error: "Internal server error",
+        message: error instanceof Error ? error.message : "Unknown error",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 /**
- * POST endpoint to process alerts for multiple tenants
- * Body: { tenant_ids: string[] }
+ * Helper function to get recent alerts (last 10 seconds) across all tenants
  */
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { tenant_ids } = body;
-
-    if (!tenant_ids || !Array.isArray(tenant_ids)) {
-      return NextResponse.json(
-        {
-          error: 'Invalid request body',
-          usage: 'POST { "tenant_ids": ["id1", "id2", ...] }',
-        },
-        { status: 400 }
-      );
-    }
-
-    // Process all tenants in parallel
-    const results = await Promise.allSettled(
-      tenant_ids.map(async (tenantId: string) => {
-        try {
-          const result = await agentOrchestrator.processTenantAlerts(tenantId);
-          return { tenantId, success: true, result };
-        } catch (error) {
-          return {
-            tenantId,
-            success: false,
-            error: error instanceof Error ? error.message : 'Unknown error',
-          };
-        }
-      })
-    );
-
-    // Aggregate results
-    const summary = {
-      total: tenant_ids.length,
-      succeeded: results.filter(r => r.status === 'fulfilled').length,
-      failed: results.filter(r => r.status === 'rejected').length,
-      results: results.map(r =>
-        r.status === 'fulfilled' ? r.value : r.reason
-      ),
-    };
-
-    return NextResponse.json({
-      success: true,
-      ...summary,
-    });
-  } catch (error) {
-    console.error('Batch agent processing error:', error);
-    return NextResponse.json(
-      {
-        error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 }
-    );
-  }
-}
-
-/**
- * Helper function to get recent alerts (last 10 seconds)
- */
-async function getRecentAlerts(tenantId: string) {
+async function getRecentAlerts(): Promise<Alert[]> {
   const tenSecondsAgo = new Date(Date.now() - 10 * 1000);
 
   return await prisma.alert.findMany({
     where: {
-      tenantId,
-      status: 'open',
+      status: "open",
       receivedAt: {
         gte: tenSecondsAgo,
       },
     },
     orderBy: {
-      receivedAt: 'desc',
+      receivedAt: "desc",
     },
-    take: 50,
+    take: 500, // Higher limit for multiple tenants
   });
+}
+
+/**
+ * Group alerts by tenant_id
+ */
+function groupAlertsByTenant(alerts: Alert[]): Record<string, Alert[]> {
+  const grouped: Record<string, Alert[]> = {};
+
+  for (const alert of alerts) {
+    const tenantId = alert.tenantId;
+    if (!grouped[tenantId]) {
+      grouped[tenantId] = [];
+    }
+    grouped[tenantId]!.push(alert);
+  }
+
+  return grouped;
 }
