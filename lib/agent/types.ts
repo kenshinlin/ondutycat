@@ -1,11 +1,12 @@
-import { Skill, Tool } from '@prisma/client';
+import { Skill, Tool } from "@prisma/client";
+import { Alert } from "../types";
 
 /**
  * Skill match result
  */
 export interface SkillMatch {
   skill: Skill;
-  matchType: 'semantic' | 'manual_binding' | 'none';
+  matchType: "semantic" | "manual_binding" | "none";
   confidence?: number;
 }
 
@@ -35,7 +36,7 @@ export interface AgentProcessingResult {
  * Agent log entry
  */
 export interface AgentLog {
-  logType: 'skill_matched' | 'tool_called' | 'reasoning' | 'conclusion';
+  logType: "skill_matched" | "tool_called" | "reasoning" | "conclusion";
   content: string;
   metadata?: Record<string, unknown>;
 }

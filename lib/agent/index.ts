@@ -8,7 +8,7 @@
  *   const results = await agentOrchestrator.processTenantAlerts(tenantId);
  */
 
-export { AgentOrchestrator, agentOrchestrator } from './agent-orchestrator';
-export { SkillMatcher, skillMatcher } from './skill-matcher';
-export { AgentTools } from './tools';
-export * from './types';
+export { AgentOrchestrator, agentOrchestrator } from "./agent-orchestrator";
+export { SkillMatcher, skillMatcher } from "./skill-matcher";
+export * from "./types";
+export { runCodeTool } from "./tools/run-code";

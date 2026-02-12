@@ -10,11 +10,11 @@ export class SkillMatcher {
    * Find matching skill for a given alert
    * Priority: Manual bindings > Semantic matching > No match
    */
-  async matchSkill(alerts: Alert[]): Promise<SkillMatch[] | null> {
+  async matchSkills(alerts: Alert[]): Promise<SkillMatch[] | null> {
     // First try manual binding (highest priority)
-    const manualMatch = await this.matchManualBinding(alerts);
-    if (manualMatch && manualMatch.length > 0) {
-      return manualMatch;
+    const manualMatches = await this.matchManualBinding(alerts);
+    if (manualMatches && manualMatches.length > 0) {
+      return manualMatches;
     }
 
     return null;

@@ -1,12 +1,30 @@
 import { ChatAnthropic } from "@langchain/anthropic";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { prisma } from "@/lib/prisma";
-import { skillMatcher } from "./skill-matcher";
 import type { AgentProcessingResult, AgentLog } from "./types";
 import { Alert, IssueStatus } from "@prisma/client";
 import { createAgent, DynamicTool } from "langchain";
 import { skillMiddleware } from "./middlewares/skill";
 import { MemorySaver } from "@langchain/langgraph";
+import { xmlToJSON } from "../utils/xml";
+import { systemPrompt } from "./prompt";
+import { callMcp } from "./tools/call-mcp";
+import { loadMcpTools } from "./tools/load-mcp-tools";
+import { runCodeTool } from "./tools/run-code";
+import { loadToolConfigs } from "./tools/load-tool-configs";
+
+interface AnalysisResult {
+  analysis?: {
+    summary?: string;
+    detailed_analysis?: string;
+    conclusion?: string;
+    severity?: string;
+    recommendation?: string;
+  };
+  isRealIssue?: boolean | null;
+  logs?: AgentLog[];
+  errors?: string[];
+}
 
 /**
  * Agent Orchestrator - Manages alert processing using LangChain agent
@@ -36,17 +54,16 @@ export class AgentOrchestrator {
     return this.model;
   }
 
-  private getAgent(tools: DynamicTool[]) {
-    this.agent = createAgent({
-      model: this.model || this.getModel(),
-      tools,
-      systemPrompt:
-        "You are a SQL query assistant that helps users " +
-        "write queries against business databases.",
-      middleware: [skillMiddleware],
-      checkpointer: new MemorySaver(),
-    });
-
+  private getAgent() {
+    if (!this.agent) {
+      this.agent = createAgent({
+        model: this.model || this.getModel(),
+        tools: [loadToolConfigs, loadMcpTools, callMcp, runCodeTool],
+        systemPrompt: this.buildSystemPrompt(),
+        middleware: [skillMiddleware],
+        checkpointer: new MemorySaver(),
+      });
+    }
     return this.agent;
   }
 
@@ -60,17 +77,16 @@ export class AgentOrchestrator {
     }
 
     // Step 1: Match skill to alerts
-    // const matchedSkill = await skillMatcher.matchSkill(alerts);
-    // const matchedSkills = await skillMatcher.allSkills(alerts[0].tenantId);
+    // const matchedSkill = await skillMatcher.matchSkills(alerts);
 
     // Step 2: Get available tools for tenant
     const tools = await this.getTenantTools(alerts[0].tenantId);
 
     // Step 3: Run LangChain agent to analyze
-    const result = await this.invoke(alerts, tools);
+    const result = await this.invoke(alerts);
 
     // Step 4: Create issue and bindings
-    const issueId = await this.createIssue(alerts, matchedSkills, result);
+    const issueId = await this.createIssue(alerts, result);
 
     // Step 5: Log all agent steps
     await this.logAgentSteps(issueId, result.logs);
@@ -80,7 +96,7 @@ export class AgentOrchestrator {
         issueId,
         alertIds: alerts.map((a) => a.id),
         conclusion: result.conclusion,
-        isRealIssue: result.isRealIssue,
+        isRealIssue: result.isRealIssue ?? undefined,
         logs: result.logs,
         errors: result.errors,
       },
@@ -104,7 +120,7 @@ export class AgentOrchestrator {
   /**
    * Run LangChain agent to analyze alerts
    */
-  private async invoke(alerts: Alert[], tools: DynamicTool[]) {
+  private async invoke(alerts: Alert[]): Promise<AnalysisResult> {
     const logs: AgentLog[] = [];
     const errors: string[] = [];
 
@@ -121,15 +137,15 @@ export class AgentOrchestrator {
         new HumanMessage(userMessage),
       ];
 
-      // Invoke model with tools (if skill matched, include SOP)
-      let response;
+      // Invoke model with tools
+      const response = await this.getAgent().invoke(messages);
 
-      response = await this.getAgent(tools).invoke(messages);
+      // Parse XML response
+      const analysisResult = await this.parseXMLResponse(response);
 
-      // Get final response after tool execution
       return {
-        conclusion: "Analysis completed with tool execution",
-        isRealIssue: null, // Needs manual review
+        ...analysisResult,
+        isRealIssue: this.determineIfRealIssueFromXML(analysisResult),
         logs,
         errors,
       };
@@ -138,8 +154,7 @@ export class AgentOrchestrator {
       errors.push(error instanceof Error ? error.message : "Unknown error");
 
       return {
-        conclusion: undefined,
-        isRealIssue: undefined,
+        isRealIssue: null,
         logs,
         errors,
       };
@@ -147,32 +162,68 @@ export class AgentOrchestrator {
   }
 
   /**
+   * Parse XML response from agent
+   */
+  private async parseXMLResponse(
+    response: any,
+  ): Promise<AnalysisResult | null> {
+    try {
+      const responseText =
+        typeof response === "string" ? response : JSON.stringify(response);
+
+      // Extract XML from response (in case there's text before/after)
+      const xmlMatch = responseText.match(/<analysis>[\s\S]*?<\/analysis>/);
+      if (!xmlMatch) {
+        console.warn("No XML analysis found in response");
+        return null;
+      }
+
+      const xmlContent = xmlMatch[0];
+      const result = await xmlToJSON(xmlContent);
+
+      return result as AnalysisResult;
+    } catch (error) {
+      console.error("XML parsing error:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Determine if response indicates a real issue from parsed XML
+   */
+  private determineIfRealIssueFromXML(
+    result: AnalysisResult | null,
+  ): boolean | null {
+    if (!result?.analysis?.conclusion) {
+      return null;
+    }
+
+    const conclusion = result.analysis.conclusion?.toUpperCase();
+
+    if (conclusion.includes("REAL_ISSUE") || conclusion === "REAL_ISSUE") {
+      return true;
+    }
+    if (
+      conclusion.includes("FALSE_POSITIVE") ||
+      conclusion === "FALSE_POSITIVE"
+    ) {
+      return false;
+    }
+    if (
+      conclusion.includes("NEEDS_MORE_INFO") ||
+      conclusion === "NEEDS_MORE_INFO"
+    ) {
+      return null;
+    }
+
+    return null;
+  }
+
+  /**
    * Build system prompt for the agent
    */
   private buildSystemPrompt(): string {
-    const basePrompt = `You are an AI assistant that analyzes monitoring alerts and determines if they represent real system issues that require attention.
-
-## Your task:
-1. Analyze the provided alerts
-2. Use available tools to gather more information if needed
-3. Determine if this is a real issue or a false positive
-4. Provide a clear conclusion with reasoning
-
-## Available tools:
-- get_alert_details: Get detailed information about a specific alert
-- search_similar_alerts: Search for similar historical alerts
-- get_skill_sop: Get Standard Operating Procedure for matched skills
-- log_reasoning: Log your reasoning steps
-
-## Response format:
-Provide your analysis in this structure:
-**Analysis**: [Your analysis of the alerts]
-**Investigation Steps**: [Steps you took or recommend]
-**Conclusion**: [REAL_ISSUE | FALSE_POSITIVE | NEEDS_MORE_INFO]
-**Confidence**: [HIGH | MEDIUM | LOW]
-**Recommendation**: [What should be done next]`;
-
-    return basePrompt;
+    return systemPrompt;
   }
 
   /**
@@ -201,77 +252,23 @@ ${alert.rawPayload ? `- Raw Data: ${JSON.stringify(alert.rawPayload)}` : ""}`;
   }
 
   /**
-   * Extract conclusion from agent response
-   */
-  private extractConclusion(response: string): string {
-    // Try to extract structured conclusion
-    const conclusionMatch = response.match(/\*\*Conclusion\*\*:\s*(.+)/i);
-    if (conclusionMatch) {
-      return conclusionMatch[1].trim();
-    }
-
-    // Fallback: return last paragraph or summary
-    const paragraphs = response.split("\n\n");
-    return paragraphs[paragraphs.length - 1] || response;
-  }
-
-  /**
-   * Determine if response indicates a real issue
-   */
-  private determineIfRealIssue(response: string): boolean | null {
-    const lower = response.toLowerCase();
-
-    // Check for explicit conclusion markers
-    if (lower.includes("real_issue") || lower.includes("real issue")) {
-      return true;
-    }
-    if (lower.includes("false_positive") || lower.includes("false positive")) {
-      return false;
-    }
-    if (
-      lower.includes("needs_more_info") ||
-      lower.includes("needs more info")
-    ) {
-      return null;
-    }
-
-    // Try to infer from content
-    const positiveIndicators = [
-      "critical",
-      "high severity",
-      "service down",
-      "error",
-      "failure",
-    ];
-    const negativeIndicators = ["test", "scheduled", "expected", "resolved"];
-
-    const hasPositive = positiveIndicators.some((i) => lower.includes(i));
-    const hasNegative = negativeIndicators.some((i) => lower.includes(i));
-
-    if (hasPositive && !hasNegative) return true;
-    if (hasNegative && !hasPositive) return false;
-
-    return null; // Unable to determine
-  }
-
-  /**
    * Create issue and alert bindings
    */
   private async createIssue(
     alerts: Alert[],
-    matchedSkill: Awaited<ReturnType<typeof skillMatcher.matchSkill>>,
-    result: { conclusion?: string; isRealIssue?: boolean },
+    result: { conclusion?: string; isRealIssue?: boolean | null },
   ): Promise<string> {
+    // Get first matched skill ID if available
+
     // Create issue
     const issue = await prisma.issue.create({
       data: {
         tenantId: alerts[0].tenantId,
-        skillId: matchedSkill?.skill.id,
         title: this.generateIssueTitle(alerts),
         description: this.generateIssueDescription(alerts),
-        status: this.determineInitialStatus(result.isRealIssue),
+        status: this.determineInitialStatus(result.isRealIssue ?? null),
         aiConclusion: result.conclusion,
-        isRealIssue: result.isRealIssue,
+        isRealIssue: result.isRealIssue ?? null,
       },
     });
 
