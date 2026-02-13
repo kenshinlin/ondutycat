@@ -1,12 +1,11 @@
 import { tool } from "langchain";
 import { z } from "zod";
+import vm from "vm";
 
 interface RunCodeOptions {
   code: string;
   input?: Record<string, unknown>;
   timeout?: number;
-  memoryLimit?: number;
-  enableFetch?: boolean;
 }
 
 interface RunCodeResult {
@@ -14,206 +13,245 @@ interface RunCodeResult {
   result?: unknown;
   error?: string;
   executionTime?: number;
+  logs?: string[];
 }
 
 /**
- * Safely execute JavaScript code in an isolated VM environment
- * Uses v8-sandbox to prevent code from affecting the main process
+ * Execute JavaScript code in a VM context
  */
-async function executeInV8Sandbox(
-  options: RunCodeOptions,
-): Promise<RunCodeResult> {
-  const {
-    code,
-    input = {},
-    timeout = 5000,
-    memoryLimit = 128,
-    enableFetch = true,
-  } = options;
+async function executeInVM(options: RunCodeOptions): Promise<RunCodeResult> {
+  const { code, input = {}, timeout = 5000 } = options;
+  const startTime = Date.now();
+  const logs: string[] = [];
 
-  // Dynamic import of v8-sandbox (installed via pkg)
-  const Sandbox = (await import("v8-sandbox")).default;
-
-  let sandbox: InstanceType<typeof Sandbox> | null = null;
+  const originalLog = console.log;
+  const originalError = console.error;
+  const originalWarn = console.warn;
 
   try {
-    // Create sandbox instance with memory limit and fetch enabled
-    sandbox = new Sandbox({
-      httpEnabled: enableFetch,
-      timersEnabled: true,
-      memory: memoryLimit,
-    });
-
-    // Prepare globals - include INPUT as the input parameter
-    const globals: Record<string, unknown> = {
-      INPUT: input,
+    // Intercept console calls to capture output
+    console.log = (...args: unknown[]) => {
+      logs.push(`[LOG] ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')}`);
+    };
+    console.error = (...args: unknown[]) => {
+      logs.push(`[ERROR] ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')}`);
+    };
+    console.warn = (...args: unknown[]) => {
+      logs.push(`[WARN] ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')}`);
     };
 
-    // Build the sandbox code
-    // v8-sandbox requires setResult({ value, error }) to return results
-    let sandboxCode = `
-      (function() {
-        try {
-          var tool = ${code};
-          var result = tool(INPUT);
+    // Create a custom console for the sandbox
+    const sandboxConsole = {
+      log: (...args: unknown[]) => {
+        logs.push(`[LOG] ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')}`);
+      },
+      error: (...args: unknown[]) => {
+        logs.push(`[ERROR] ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')}`);
+      },
+      warn: (...args: unknown[]) => {
+        logs.push(`[WARN] ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')}`);
+      },
+    };
 
-          // Handle promises
-          if (result && typeof result.then === 'function') {
-            result.then(function(r) {
-              setResult({ value: { success: true, result: r } });
-            }).catch(function(error) {
-              setResult({ value: { success: false, error: error.message || String(error) } });
-            });
-          } else {
-            setResult({ value: { success: true, result: result } });
+    // Create a sandbox with fetch function and standard JS APIs
+    const sandbox: Record<string, unknown> = {
+      INPUT: input,
+      console: sandboxConsole,
+      fetch: async (url: string, options?: RequestInit) => {
+        try {
+          const response = await fetch(url, options);
+          const text = await response.text();
+
+          // Try to parse as JSON
+          let data: unknown = text;
+          try {
+            data = JSON.parse(text);
+          } catch {
+            // Keep as text
           }
+
+          return {
+            ok: response.ok,
+            status: response.status,
+            statusText: response.statusText,
+            headers: Object.fromEntries(response.headers.entries()),
+            data,
+          };
         } catch (error) {
-          setResult({ value: { success: false, error: error.message || String(error) } });
+          throw new Error(`Fetch failed: ${error instanceof Error ? error.message : String(error)}`);
         }
-      })();
+      },
+      setTimeout,
+      clearTimeout,
+      setInterval,
+      clearInterval,
+      Promise,
+      JSON,
+      Math,
+      Date,
+      Array,
+      Object,
+      String,
+      Number,
+      Boolean,
+      RegExp,
+      Error,
+      Map,
+      Set,
+      URL,
+      URLSearchParams,
+      encodeURIComponent,
+      decodeURIComponent,
+      encodeURI,
+      decodeURI,
+      parseInt,
+      parseFloat,
+      isNaN,
+      isFinite,
+    };
+
+    // Create context
+    const context = vm.createContext(sandbox);
+
+    // Wrap code in an async IIFE to handle both sync and async code
+    const wrappedCode = `
+      (async () => {
+        try {
+          ${code}
+        } catch (error) {
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : String(error)
+          };
+        }
+      })()
     `;
 
-    const startTime = Date.now();
-    const executionResult = await sandbox.execute({
-      code: sandboxCode,
-      timeout,
-      globals,
+    // Compile script
+    const script = new vm.Script(wrappedCode);
+
+    // Run with timeout using Promise.race for better timeout control
+    const timeoutPromise = new Promise<RunCodeResult>((_, reject) => {
+      setTimeout(() => {
+        reject(new Error(`Execution timeout: code took longer than ${timeout}ms`));
+      }, timeout);
     });
+
+    const executionPromise = script.runInContext(context, {
+      timeout,
+      displayErrors: true,
+    }) as Promise<RunCodeResult>;
+
+    const result = await Promise.race([executionPromise, timeoutPromise]);
+
     const executionTime = Date.now() - startTime;
 
-    // Shutdown the sandbox
-    await sandbox.shutdown();
-    sandbox = null;
-
-    // Check for execution errors
-    if (executionResult.error) {
+    // If code returned an error result
+    if (result && result.success === false) {
       return {
         success: false,
-        error: String(executionResult.error),
+        error: result.error,
         executionTime,
+        logs: logs.length > 0 ? logs : undefined,
       };
     }
 
-    // Return the value (which contains our success/result/error object)
+    // Return successful result with logs
     return {
-      ...(executionResult.value as RunCodeResult),
+      success: true,
+      result: result || undefined,
       executionTime,
+      logs: logs.length > 0 ? logs : undefined,
     };
   } catch (error) {
-    // Clean up sandbox if it still exists
-    if (sandbox) {
-      try {
-        await sandbox.shutdown();
-      } catch {
-        // Ignore cleanup errors
-      }
-    }
+    const executionTime = Date.now() - startTime;
 
     if (error instanceof Error) {
-      // Handle common v8-sandbox errors
+      // Handle timeout
       if (error.message.includes("timeout")) {
         return {
           success: false,
           error: `Execution timeout: code took longer than ${timeout}ms`,
-        };
-      }
-
-      if (error.message.includes("memory")) {
-        return {
-          success: false,
-          error: `Memory limit exceeded: ${memoryLimit}MB`,
+          executionTime,
+          logs: logs.length > 0 ? logs : undefined,
         };
       }
 
       return {
         success: false,
         error: error.message,
+        executionTime,
+        logs: logs.length > 0 ? logs : undefined,
       };
     }
 
     return {
       success: false,
       error: "Unknown error occurred",
+      executionTime,
+      logs: logs.length > 0 ? logs : undefined,
     };
+  } finally {
+    // Restore original console
+    console.log = originalLog;
+    console.error = originalError;
+    console.warn = originalWarn;
   }
 }
 
 /**
- * Tool to safely execute JavaScript code in an isolated environment
+ * Tool to execute JavaScript code with fetch support
  */
 export const runCodeTool = tool(
-  async ({ code, input, timeout, memoryLimit, enableFetch }, config) => {
-    const result = await executeInV8Sandbox({
+  async ({ code, input, timeout }) => {
+    const result = await executeInVM({
       code,
       input,
       timeout,
-      memoryLimit,
-      enableFetch,
     });
 
     return JSON.stringify(result, null, 2);
   },
   {
     name: "run_code",
-    description: `Execute JavaScript code in a secure, isolated VM environment.
+    description: `Execute JavaScript code safely.
 
-This tool runs JavaScript code safely with the following constraints:
-- Memory limit (default 128MB)
+This tool runs JavaScript code with following features:
 - Execution timeout (default 5000ms)
-- Optional fetch support for HTTP/HTTPS requests (enabled by default)
-- No access to file system or main process globals
-- Only has access to the provided INPUT object and fetch function
-
-The code should be a function that takes INPUT as its parameter and returns a result.
+- Built-in fetch function for HTTP/HTTPS requests
+- Access to INPUT object containing provided input data
+- Access to standard JavaScript APIs (Promise, JSON, Math, etc.)
+- Console output capture
 
 Example usage:
-  code: "(input) => { return input.x + input.y; }"
+  code: "return INPUT.x + INPUT.y;"
   input: { "x": 5, "y": 3 }
   Result: { "success": true, "result": 8 }
 
 Fetch example:
-  code: "(input) => { const response = await fetch('https://api.example.com/data'); return response.data; }"
-  Note: response has {ok, status, statusText, headers, data} properties
+  code: "const res = await fetch('https://api.example.com/data'); return res.data;"
 
 Use this for:
 - Performing calculations or data transformations
-- Validating or processing user input
 - Making HTTP/HTTPS requests to external APIs
 - Testing small code snippets
-- Running untrusted code safely
-
-Do NOT use for:
-- File operations (not supported)
-- Requests to non-HTTP/non-HTTPS endpoints (blocked)
-- Long-running operations (will timeout)`,
+- Processing JSON data`,
     schema: z.object({
       code: z
         .string()
         .describe(
-          "The JavaScript code to execute. Should be a function that accepts INPUT as a parameter. Can be async.",
+          "The JavaScript code to execute. Can use return statement to output a result. Can be async.",
         ),
       input: z
         .record(z.string(), z.unknown())
         .optional()
         .default({})
-        .describe("Input data to pass to the code function"),
+        .describe("Input data accessible as INPUT object"),
       timeout: z
         .number()
         .optional()
         .default(5000)
         .describe("Maximum execution time in milliseconds (default: 5000)"),
-      memoryLimit: z
-        .number()
-        .optional()
-        .default(128)
-        .describe("Memory limit in MB (default: 128)"),
-      enableFetch: z
-        .boolean()
-        .optional()
-        .default(true)
-        .describe(
-          "Enable fetch function for HTTP/HTTPS requests (default: true)",
-        ),
     }),
   },
 );
