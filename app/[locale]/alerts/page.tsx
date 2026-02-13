@@ -16,7 +16,6 @@ import {
   X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
 import { cn } from "@/utils/utils";
 
 type Severity = "critical" | "high" | "medium" | "low";

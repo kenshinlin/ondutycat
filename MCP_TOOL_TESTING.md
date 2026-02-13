@@ -55,7 +55,8 @@ Currently enabled in `app/[locale]/skills/page.tsx`:
    - List of 4 tools: `read_file`, `write_file`, `list_directory`, `search_files`
 5. Click on "read_file"
 6. ✅ Tool inserted as: `{{filesystem.read_file}}`
-7. ✅ Tool is highlighted with blue gradient background
+7. ✅ Tool is displayed in editor with blue gradient background highlight
+8. ✅ Cursor is moved to end of editor
 
 ### Test 3: MCP Tool Selection - PostgreSQL
 1. Type `@` or `/` in SOP editor
@@ -179,3 +180,7 @@ To use real MCP servers instead of mock data:
 3. **Component**: `components/skills/SOPEditor.tsx` - Main editor with two-level selection
 4. **Component**: `components/skills/SkillDrawer.tsx` - Passes useMockApi prop
 5. **Page**: `app/[locale]/skills/page.tsx` - Mock MCP tools + useMockApi flag
+
+**Problem**: Tool doesn't show up after selection
+- **Solution**: Fixed! The issue was useEffect overwriting manual innerHTML updates. Now uses `isUpdatingFromOutside` flag to prevent conflicts.
+

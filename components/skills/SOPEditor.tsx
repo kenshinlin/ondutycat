@@ -75,15 +75,14 @@ export function SOPEditor({
   const [mcpToolError, setMcpToolError] = useState<string | null>(null);
   const [showMcpToolSelector, setShowMcpToolSelector] = useState(false);
   const [mcpSearchQuery, setMcpSearchQuery] = useState("");
+  const [isUpdatingFromOutside, setIsUpdatingFromOutside] = useState(false);
 
-  // Sync value with editor content
+  // Sync value with editor content (only when updating from outside, not from tool insertion)
   useEffect(() => {
-    if (
-      editorRef.current &&
-      !document.activeElement?.contains(editorRef.current)
-    ) {
+    if (editorRef.current && !isUpdatingFromOutside) {
       editorRef.current.innerHTML = parseContentToHtml(value);
     }
+    setIsUpdatingFromOutside(false);
   }, [value]);
 
   // Fetch MCP tools for a selected tool
@@ -148,46 +147,43 @@ export function SOPEditor({
   const insertToolName = (toolName: string) => {
     if (!editorRef.current) return;
 
-    const selection = window.getSelection();
-    if (selection && selection.rangeCount > 0) {
-      const range = selection.getRangeAt(0);
-      const text = extractPlainText(editorRef.current);
+    // Get current text content
+    const text = extractPlainText(editorRef.current);
 
-      // Find the position of @ or /
-      const beforeCursor = text.substring(0, range.startOffset);
-      const triggerMatch = beforeCursor.match(/[@/]([a-zA-Z0-9_-]*)$/);
+    // Find the last occurrence of @ or / trigger
+    const lastTriggerIndex = Math.max(
+      text.lastIndexOf('@'),
+      text.lastIndexOf('/')
+    );
 
-      if (triggerMatch) {
-        // Remove the trigger and typed text
-        const newText =
-          text.substring(0, triggerMatch.index) +
-          `{{${toolName}}} ` +
-          text.substring(range.startOffset);
-        onChange(newText);
-
-        // Update editor content
-        editorRef.current.innerHTML = parseContentToHtml(newText);
-
-        // Move cursor to end of inserted tool
-        const newRange = document.createRange();
-        const toolSpans = editorRef.current.querySelectorAll(".tool-highlight");
-        const lastToolSpan = toolSpans[toolSpans.length - 1];
-
-        if (lastToolSpan && lastToolSpan.nextSibling) {
-          newRange.setStartAfter(lastToolSpan.nextSibling as Node);
-          newRange.collapse(true);
-        } else {
-          newRange.setStart(
-            editorRef.current,
-            editorRef.current.childNodes.length,
-          );
-          newRange.collapse(true);
-        }
-
-        selection.removeAllRanges();
-        selection.addRange(newRange);
-      }
+    let newText: string;
+    if (lastTriggerIndex === -1) {
+      // No trigger found, just append at end
+      newText = text + `{{${toolName}}} `;
+    } else {
+      // Replace from trigger to end with tool name
+      const beforeTrigger = text.substring(0, lastTriggerIndex);
+      newText = beforeTrigger + `{{${toolName}}} `;
     }
+
+    // Prevent useEffect from overwriting our manual update
+    setIsUpdatingFromOutside(true);
+
+    // Update parent component state
+    onChange(newText);
+
+    // Immediately update editor content with highlighting
+    editorRef.current!.innerHTML = parseContentToHtml(newText);
+
+    // Move cursor to end of editor
+    setTimeout(() => {
+      const selection = window.getSelection();
+      const newRange = document.createRange();
+      newRange.selectNodeContents(editorRef.current!);
+      newRange.collapse(false);
+      selection?.removeAllRanges();
+      selection?.addRange(newRange);
+    }, 0);
 
     setToolSearchQuery("");
   };
