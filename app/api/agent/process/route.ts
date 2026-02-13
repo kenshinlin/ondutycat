@@ -76,8 +76,7 @@ export async function GET(request: NextRequest) {
       } else {
         // Actual processing
         const runner = createAgentRunner();
-        const tenantResults =
-          await runner.processTenantAlerts(tenantAlerts);
+        const tenantResults = await runner.processTenantAlerts(tenantAlerts);
         results[tenantId] = {
           processed: tenantResults.length,
           results: tenantResults,
@@ -114,13 +113,13 @@ export async function GET(request: NextRequest) {
  * Helper function to get recent alerts (last 10 seconds) across all tenants
  */
 async function getRecentAlerts(): Promise<Alert[]> {
-  const tenSecondsAgo = new Date(Date.now() - 10 * 1000);
+  const gap = new Date(Date.now() - 30 * 1000);
 
   return await prisma.alert.findMany({
     where: {
       status: "open",
       receivedAt: {
-        gte: tenSecondsAgo,
+        gte: gap,
       },
     },
     orderBy: {
