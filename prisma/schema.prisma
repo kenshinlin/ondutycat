@@ -68,9 +68,9 @@ enum ToolType {
 }
 
 enum IssueLogType {
-  skill_matched
-  tool_called
-  reasoning
+  tool_call
+  ask_ai
+  ai_response
   conclusion
 }
 
@@ -102,7 +102,6 @@ model Tenant {
   tools               Tool[]
   configurations      Configuration[]
   alertSkillBindings  AlertSkillBinding[]
-  issueAlertBindings  IssueAlertBinding[]
   imReceivers         IMReceiver[]
 
   @@map("tenants")
@@ -152,20 +151,22 @@ model Alert {
   status       AlertStatus  @default(open)
   receivedAt   DateTime     @default(now()) @map("received_at")
   resolvedAt   DateTime?    @map("resolved_at")
+  issueId      String?      @map("issue_id")
   createdAt    DateTime     @default(now()) @map("created_at")
   updatedAt    DateTime     @updatedAt @map("updated_at")
 
   // Relations
-  tenant             Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  receiver           IMReceiver?            @relation(fields: [receiverId], references: [id], onDelete: SetNull)
-  assignedUser       User?                  @relation("AssignedAlerts", fields: [assignedTo], references: [id], onDelete: SetNull)
-  resolvedByUser     User?                  @relation("ResolvedAlerts", fields: [resolvedBy], references: [id], onDelete: SetNull)
-  issueAlertBindings IssueAlertBinding[]
+  tenant         Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  receiver       IMReceiver?   @relation(fields: [receiverId], references: [id], onDelete: SetNull)
+  assignedUser   User?         @relation("AssignedAlerts", fields: [assignedTo], references: [id], onDelete: SetNull)
+  resolvedByUser User?         @relation("ResolvedAlerts", fields: [resolvedBy], references: [id], onDelete: SetNull)
+  issue          Issue?        @relation("IssueAlerts", fields: [issueId], references: [id], onDelete: SetNull)
 
   @@index([tenantId])
   @@index([receiverId])
   @@index([assignedTo])
   @@index([status])
+  @@index([issueId])
   @@index([receivedAt(sort: Desc)])
   @@map("alerts")
 }
@@ -176,66 +177,44 @@ model Issue {
   tenantId      String       @map("tenant_id")
   assignedTo    String?      @map("assigned_to")
   createdBy     String?      @map("created_by")
-  skillId       String?      @map("skill_id")
-  title         String       @db.VarChar(500)
+  title         String?      @db.VarChar(500)
   description   String?
   status        IssueStatus  @default(analyzing)
+  threadId      String?       @map("thread_id")
   aiConclusion  String?      @map("ai_conclusion")
   isRealIssue   Boolean?     @map("is_real_issue")
+  severity      String?      @map("severity")
+  recommendation String?      @map("recommendation")
   createdAt     DateTime     @default(now()) @map("created_at")
   updatedAt     DateTime     @updatedAt @map("updated_at")
   resolvedAt    DateTime?    @map("resolved_at")
 
   // Relations
-  tenant             Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  assignedUser       User?                  @relation("AssignedIssues", fields: [assignedTo], references: [id], onDelete: SetNull)
-  creator            User?                  @relation("CreatedIssues", fields: [createdBy], references: [id], onDelete: SetNull)
-  skill              Skill?                 @relation(fields: [skillId], references: [id], onDelete: SetNull)
-  issueAlertBindings IssueAlertBinding[]
-  issueLogs          IssueLog[]
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assignedUser User?      @relation("AssignedIssues", fields: [assignedTo], references: [id], onDelete: SetNull)
+  creator      User?      @relation("CreatedIssues", fields: [createdBy], references: [id], onDelete: SetNull)
+  alerts       Alert[]    @relation("IssueAlerts")
 
   @@index([tenantId])
   @@index([assignedTo])
   @@index([createdBy])
-  @@index([skillId])
   @@index([status])
   @@map("issues")
 }
 
-/// Bindings between issues and alerts (one-to-many relationship)
-model IssueAlertBinding {
-  id        String   @id @default(uuid())
-  tenantId  String   @map("tenant_id")
-  issueId   String   @map("issue_id")
-  alertId   String   @map("alert_id")
-  createdAt DateTime @default(now()) @map("created_at")
-
-  // Relations
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  issue  Issue  @relation(fields: [issueId], references: [id], onDelete: Cascade)
-  alert  Alert  @relation(fields: [alertId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId])
-  @@index([issueId])
-  @@index([alertId])
-  @@map("issue_alert_bindings")
-}
-
-/// Logs of AI processing steps for each issue
-model IssueLog {
+/// Logs of AI processing steps for each issue thread
+model ThreadLog {
   id        String        @id @default(uuid())
-  issueId   String        @map("issue_id")
+  threadId  String        @map("thread_id")
+  tenantId  String        @map("tenant_id")
   logType   IssueLogType  @map("log_type")
   content   String
   metadata  Json?
   createdAt DateTime      @default(now()) @map("created_at")
 
-  // Relations
-  issue Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
-
-  @@index([issueId])
+  @@index([threadId])
   @@index([createdAt(sort: Desc)])
-  @@map("issue_logs")
+  @@map("thread_logs")
 }
 
 /// Stores problem-solving SOPs (Standard Operating Procedures)
@@ -253,7 +232,6 @@ model Skill {
   // Relations
   tenant             Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   creator            User?                @relation("CreatedSkills", fields: [createdBy], references: [id], onDelete: SetNull)
-  issues             Issue[]
   alertSkillBindings AlertSkillBinding[]
 
   @@index([tenantId])

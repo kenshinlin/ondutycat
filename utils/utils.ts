@@ -36,3 +36,7 @@ export function getStatusColor(status: string): string {
   };
   return colors[status] || 'text-gray-600 bg-gray-50';
 }
+
+export function uuid(): string {
+  return Math.random().toString(36).slice(2, 18)
+}

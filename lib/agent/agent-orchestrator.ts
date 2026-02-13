@@ -1,16 +1,19 @@
 import { ChatAnthropic } from "@langchain/anthropic";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import type { AgentProcessingResult, AgentLog } from "./types";
 import { Alert, IssueStatus } from "@prisma/client";
-import { createAgent } from "langchain";
 import { skillMiddleware } from "./middlewares/skill";
 import { MemorySaver } from "@langchain/langgraph";
-import { xmlToJSON } from "../utils/xml";
+import { xmlToJSON } from "../../utils/xml";
 import { systemPrompt } from "./prompt";
 import { callMcp } from "./tools/call-mcp";
 import { runCodeTool } from "./tools/run-code";
 import { loadTool } from "./tools/load-tool";
+import { LogPayload, TAgent } from "../types";
+import { createAgent } from "./util";
+import { uuid } from "@/utils/utils";
 
 interface AnalysisResult {
   analysis?: {
@@ -21,8 +24,7 @@ interface AnalysisResult {
     recommendation?: string;
   };
   isRealIssue?: boolean | null;
-  logs?: AgentLog[];
-  errors?: string[];
+  error?: string;
 }
 
 /**
@@ -31,7 +33,7 @@ interface AnalysisResult {
 export class AgentOrchestrator {
   private model: ChatAnthropic | null = null;
 
-  private agent: ReturnType<typeof createAgent> | null = null;
+  private agent: TAgent = null;
 
   private getModel(): ChatAnthropic {
     if (!this.model) {
@@ -61,10 +63,45 @@ export class AgentOrchestrator {
         systemPrompt: this.buildSystemPrompt(),
         middleware: [skillMiddleware],
         checkpointer: new MemorySaver(),
+        log: this.logFn,
       });
     }
     return this.agent;
   }
+
+  /**
+   * Log function for middleware - writes logs to database
+   */
+  private logFn = (threadId: string, tenantId: string, logData: LogPayload) => {
+    if (!threadId || !tenantId) {
+      console.warn("logFn called without threadId or tenantId set");
+      return;
+    }
+
+    const metadata = logData.metadata;
+
+    try {
+      // Write to database asynchronously (don't await to avoid blocking)
+      prisma.threadLog
+        .create({
+          data: {
+            threadId,
+            tenantId,
+            logType: logData.type,
+            content: logData.content || "",
+            metadata:
+              metadata && Object.keys(metadata).length > 0
+                ? metadata
+                : Prisma.DbNull,
+          },
+        })
+        .catch((error: unknown) => {
+          console.error("Failed to write log to database:", error);
+        });
+    } catch (error) {
+      console.error("Error in logFn:", error);
+    }
+  };
 
   /**
    * Process alerts for a specific tenant
@@ -79,50 +116,47 @@ export class AgentOrchestrator {
     // const matchedSkill = await skillMatcher.matchSkills(alerts);
 
     // Step 2: Get available tools for tenant
-    const tools = await this.getTenantTools(alerts[0].tenantId);
+    // const tools = await this.getTenantTools(alerts[0].tenantId);
+
+    const threadId = uuid();
+
+    const issueId = await this.createIssue(alerts, threadId);
 
     // Step 3: Run LangChain agent to analyze
-    const result = await this.invoke(alerts);
+    const result = await this.invoke(alerts, threadId);
 
-    // Step 4: Create issue and bindings
-    const issueId = await this.createIssue(alerts, result);
-
-    // Step 5: Log all agent steps
-    await this.logAgentSteps(issueId, result.logs);
+    // Step 4: Update issue with analysis results
+    await prisma.issue.update({
+      where: { id: issueId },
+      data: {
+        title: result.analysis?.summary,
+        description: result.analysis?.detailed_analysis,
+        aiConclusion: result.analysis?.conclusion,
+        isRealIssue: result.isRealIssue ?? null,
+        severity: result.analysis?.severity,
+        recommendation: result.analysis?.recommendation,
+        status: this.determineInitialStatus(result.isRealIssue),
+      },
+    });
 
     return [
       {
         issueId,
         alertIds: alerts.map((a) => a.id),
-        conclusion: result.conclusion,
+        conclusion: result.analysis?.conclusion,
         isRealIssue: result.isRealIssue ?? undefined,
-        logs: result.logs,
-        errors: result.errors,
+        error: result.error,
       },
     ];
   }
 
   /**
-   * Get available tools for tenant
-   */
-  private async getTenantTools(tenantId: string) {
-    const tools = await prisma.tool.findMany({
-      where: {
-        tenantId,
-        status: "active",
-      },
-    });
-
-    return tools;
-  }
-
-  /**
    * Run LangChain agent to analyze alerts
    */
-  private async invoke(alerts: Alert[]): Promise<AnalysisResult> {
-    const logs: AgentLog[] = [];
-    const errors: string[] = [];
-
+  private async invoke(
+    alerts: Alert[],
+    threadId: string,
+  ): Promise<AnalysisResult> {
     try {
       // Build system prompt
       const systemPrompt = this.buildSystemPrompt();
@@ -137,7 +171,15 @@ export class AgentOrchestrator {
       ];
 
       // Invoke model with tools
-      const response = await this.getAgent().invoke(messages);
+      const response = await this.getAgent().invoke(messages, {
+        configurable: {
+          runId: threadId,
+          context: {
+            tenantId: alerts[0].tenantId,
+            threadId,
+          },
+        },
+      });
 
       // Parse XML response
       const analysisResult = await this.parseXMLResponse(response);
@@ -145,17 +187,13 @@ export class AgentOrchestrator {
       return {
         ...analysisResult,
         isRealIssue: this.determineIfRealIssueFromXML(analysisResult),
-        logs,
-        errors,
       };
     } catch (error) {
       console.error("Agent analysis error:", error);
-      errors.push(error instanceof Error ? error.message : "Unknown error");
 
       return {
         isRealIssue: null,
-        logs,
-        errors,
+        error: (error as any).message || "agent error",
       };
     }
   }
@@ -251,42 +289,28 @@ ${alert.rawPayload ? `- Raw Data: ${JSON.stringify(alert.rawPayload)}` : ""}`;
   }
 
   /**
-   * Create issue and alert bindings
+   * Create issue and link alerts
    */
   private async createIssue(
     alerts: Alert[],
-    result: { conclusion?: string; isRealIssue?: boolean | null },
+    threadId: string,
   ): Promise<string> {
-    // Get first matched skill ID if available
-
     // Create issue
     const issue = await prisma.issue.create({
       data: {
         tenantId: alerts[0].tenantId,
-        title: this.generateIssueTitle(alerts),
-        description: this.generateIssueDescription(alerts),
-        status: this.determineInitialStatus(result.isRealIssue ?? null),
-        aiConclusion: result.conclusion,
-        isRealIssue: result.isRealIssue ?? null,
+        threadId,
       },
     });
 
-    // Create alert bindings
-    await prisma.issueAlertBinding.createMany({
-      data: alerts.map((alert) => ({
-        tenantId: alert.tenantId,
-        issueId: issue.id,
-        alertId: alert.id,
-      })),
-    });
-
-    // Update alert statuses
+    // Update alert statuses and link to issue
     await prisma.alert.updateMany({
       where: {
         id: { in: alerts.map((a) => a.id) },
       },
       data: {
         status: "investigating",
+        issueId: issue.id,
       },
     });
 
@@ -294,57 +318,14 @@ ${alert.rawPayload ? `- Raw Data: ${JSON.stringify(alert.rawPayload)}` : ""}`;
   }
 
   /**
-   * Generate issue title from alerts
-   */
-  private generateIssueTitle(alerts: Alert[]): string {
-    if (alerts.length === 1) {
-      return alerts[0].title;
-    }
-
-    const types = new Set(alerts.map((a) => a.alertType));
-    if (types.size === 1) {
-      return `${alerts.length}x ${Array.from(types)[0]} alerts`;
-    }
-
-    return `Batch of ${alerts.length} alerts`;
-  }
-
-  /**
-   * Generate issue description from alerts
-   */
-  private generateIssueDescription(alerts: Alert[]): string {
-    const summary = alerts
-      .map((a) => `- ${a.title}: ${a.description || "No description"}`)
-      .join("\n");
-    return `Grouped alerts:\n${summary}`;
-  }
-
-  /**
    * Determine initial issue status from analysis result
    */
-  private determineInitialStatus(isRealIssue: boolean | null): IssueStatus {
+  private determineInitialStatus(
+    isRealIssue: boolean | null | undefined,
+  ): IssueStatus {
     if (isRealIssue === true) return "in_progress";
     if (isRealIssue === false) return "false_positive";
     return "analyzing";
-  }
-
-  /**
-   * Log agent processing steps to database
-   */
-  private async logAgentSteps(
-    issueId: string,
-    logs: AgentLog[],
-  ): Promise<void> {
-    if (logs.length === 0) return;
-
-    await prisma.issueLog.createMany({
-      data: logs.map((log) => ({
-        issueId,
-        logType: log.logType,
-        content: log.content,
-        metadata: log.metadata as any,
-      })),
-    });
   }
 }
 

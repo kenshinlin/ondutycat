@@ -28,8 +28,7 @@ export interface AgentProcessingResult {
   alertIds: string[];
   conclusion?: string;
   isRealIssue?: boolean;
-  logs: AgentLog[];
-  errors?: string[];
+  error?: string;
 }
 
 /**
