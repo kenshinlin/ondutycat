@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { agentOrchestrator } from "@/lib/agent/agent-orchestrator";
+import { agentRunner } from "@/lib/agent";
 import { prisma } from "@/lib/prisma";
 import { Alert } from "@prisma/client";
 
@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
       } else {
         // Actual processing
         const tenantResults =
-          await agentOrchestrator.processTenantAlerts(tenantAlerts);
+          await agentRunner.processTenantAlerts(tenantAlerts);
         results[tenantId] = {
           processed: tenantResults.length,
           results: tenantResults,

@@ -28,9 +28,9 @@ interface AnalysisResult {
 }
 
 /**
- * Agent Orchestrator - Manages alert processing using LangChain agent
+ * Agent Runner - Runs LangChain agent to process alerts
  */
-export class AgentOrchestrator {
+export class AgentRunner {
   private model: ChatAnthropic | null = null;
 
   private agent: TAgent = null;
@@ -330,4 +330,4 @@ ${alert.rawPayload ? `- Raw Data: ${JSON.stringify(alert.rawPayload)}` : ""}`;
 }
 
 // Singleton instance
-export const agentOrchestrator = new AgentOrchestrator();
+export const agentRunner = new AgentRunner();

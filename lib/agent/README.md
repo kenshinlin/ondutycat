@@ -5,7 +5,7 @@ The agent service processes monitoring alerts using AI (LangChain with Anthropic
 ## Architecture
 
 ```
-Alerts → Agent Orchestrator → Skill Matcher → LangChain Agent → Issue Creation
+Alerts → Agent Runner → Skill Matcher → LangChain Agent → Issue Creation
               ↓                          ↓                      ↓
          Get recent alerts           Find matching SOP         Log steps
          (last 10 seconds)         (manual/semantic)        Create issue
@@ -13,7 +13,7 @@ Alerts → Agent Orchestrator → Skill Matcher → LangChain Agent → Issue Cr
 
 ## Components
 
-### 1. Agent Orchestrator ([agent-orchestrator.ts](./agent-orchestrator.ts))
+### 1. Agent Runner ([runner.ts](./runner.ts))
 
 Main coordinator that:
 - Reads recent unprocessed alerts (last 10 seconds)
