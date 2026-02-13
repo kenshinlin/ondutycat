@@ -2,7 +2,7 @@
 
 import { ReactNode, useEffect } from "react";
 import { X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/utils";
 import { lockScroll, unlockScroll } from "@/lib/scroll-lock";
 
 export interface ModalProps {
@@ -61,7 +61,7 @@ export function Modal({
       <div
         className={cn(
           "absolute inset-0 bg-black/50 animate-fade-in",
-          closeOnBackdropClick && "cursor-pointer"
+          closeOnBackdropClick && "cursor-pointer",
         )}
         onClick={closeOnBackdropClick ? onClose : undefined}
       />
@@ -70,7 +70,7 @@ export function Modal({
       <div
         className={cn(
           "relative bg-white rounded-xl shadow-2xl w-full max-h-[90vh] overflow-hidden animate-scale-in flex flex-col",
-          sizeClasses[size as keyof typeof sizeClasses] || sizeClasses["2xl"]
+          sizeClasses[size as keyof typeof sizeClasses] || sizeClasses["2xl"],
         )}
         onClick={(e) => e.stopPropagation()}
       >
@@ -126,7 +126,9 @@ export interface ModalFooterProps {
 }
 
 export function ModalFooter({ children, className }: ModalFooterProps) {
-  return <div className={cn("flex items-center gap-3", className)}>{children}</div>;
+  return (
+    <div className={cn("flex items-center gap-3", className)}>{children}</div>
+  );
 }
 
 // Modal Header Component

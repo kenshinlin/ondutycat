@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { X, Lightbulb, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/utils";
 import { SOPEditor } from "./SOPEditor";
 
 type SkillStatus = "active" | "inactive";
@@ -44,7 +44,13 @@ const initialFormData: FormData = {
   status: "active",
 };
 
-export function SkillModal({ isOpen, onClose, onSave, skill, availableTools = [] }: SkillModalProps) {
+export function SkillModal({
+  isOpen,
+  onClose,
+  onSave,
+  skill,
+  availableTools = [],
+}: SkillModalProps) {
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -138,8 +144,7 @@ export function SkillModal({ isOpen, onClose, onSave, skill, availableTools = []
                 value={formData.name}
                 onChange={(e) => {
                   setFormData((prev) => ({ ...prev, name: e.target.value }));
-                  if (errors.name)
-                    setErrors((prev) => ({ ...prev, name: "" }));
+                  if (errors.name) setErrors((prev) => ({ ...prev, name: "" }));
                 }}
                 placeholder="e.g., Database Connection Failure"
                 className={cn(
@@ -163,7 +168,10 @@ export function SkillModal({ isOpen, onClose, onSave, skill, availableTools = []
               <textarea
                 value={formData.problemDescription}
                 onChange={(e) => {
-                  setFormData((prev) => ({ ...prev, problemDescription: e.target.value }));
+                  setFormData((prev) => ({
+                    ...prev,
+                    problemDescription: e.target.value,
+                  }));
                   if (errors.problemDescription)
                     setErrors((prev) => ({ ...prev, problemDescription: "" }));
                 }}
@@ -171,7 +179,9 @@ export function SkillModal({ isOpen, onClose, onSave, skill, availableTools = []
                 rows={3}
                 className={cn(
                   "w-full px-3 py-2 bg-background border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none",
-                  errors.problemDescription ? "border-red-500" : "border-border",
+                  errors.problemDescription
+                    ? "border-red-500"
+                    : "border-border",
                 )}
               />
               {errors.problemDescription && (
@@ -181,7 +191,8 @@ export function SkillModal({ isOpen, onClose, onSave, skill, availableTools = []
                 </p>
               )}
               <p className="mt-1.5 text-xs text-muted-foreground">
-                This description is used for semantic matching with incoming alerts
+                This description is used for semantic matching with incoming
+                alerts
               </p>
             </div>
 
@@ -190,8 +201,7 @@ export function SkillModal({ isOpen, onClose, onSave, skill, availableTools = []
               value={formData.sop}
               onChange={(value) => {
                 setFormData((prev) => ({ ...prev, sop: value }));
-                if (errors.sop)
-                  setErrors((prev) => ({ ...prev, sop: "" }));
+                if (errors.sop) setErrors((prev) => ({ ...prev, sop: "" }));
               }}
               placeholder="Define the step-by-step procedure for handling this type of issue..."
               error={errors.sop}

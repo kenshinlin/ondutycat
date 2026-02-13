@@ -3,9 +3,14 @@
 import { useState, useEffect } from "react";
 import { Lightbulb, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { Drawer, DrawerHeader, DrawerBody, DrawerFooter } from "@/components/ui/Drawer";
+import {
+  Drawer,
+  DrawerHeader,
+  DrawerBody,
+  DrawerFooter,
+} from "@/components/ui/Drawer";
 import { SOPEditor } from "./SOPEditor";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/utils";
 
 type SkillStatus = "active" | "inactive";
 
@@ -29,6 +34,7 @@ interface SkillDrawerProps {
   onSave: (skill: Partial<Skill>) => void;
   skill?: Skill | null;
   availableTools?: Tool[];
+  useMockApi?: boolean; // Pass through to SOPEditor for testing
 }
 
 interface FormData {
@@ -45,7 +51,14 @@ const initialFormData: FormData = {
   status: "active",
 };
 
-export function SkillDrawer({ isOpen, onClose, onSave, skill, availableTools = [] }: SkillDrawerProps) {
+export function SkillDrawer({
+  isOpen,
+  onClose,
+  onSave,
+  skill,
+  availableTools = [],
+  useMockApi = false,
+}: SkillDrawerProps) {
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -125,8 +138,7 @@ export function SkillDrawer({ isOpen, onClose, onSave, skill, availableTools = [
             value={formData.name}
             onChange={(e) => {
               setFormData((prev) => ({ ...prev, name: e.target.value }));
-              if (errors.name)
-                setErrors((prev) => ({ ...prev, name: "" }));
+              if (errors.name) setErrors((prev) => ({ ...prev, name: "" }));
             }}
             placeholder="e.g., Database Connection Failure"
             className={cn(
@@ -150,7 +162,10 @@ export function SkillDrawer({ isOpen, onClose, onSave, skill, availableTools = [
           <textarea
             value={formData.problemDescription}
             onChange={(e) => {
-              setFormData((prev) => ({ ...prev, problemDescription: e.target.value }));
+              setFormData((prev) => ({
+                ...prev,
+                problemDescription: e.target.value,
+              }));
               if (errors.problemDescription)
                 setErrors((prev) => ({ ...prev, problemDescription: "" }));
             }}
@@ -178,12 +193,12 @@ export function SkillDrawer({ isOpen, onClose, onSave, skill, availableTools = [
             value={formData.sop}
             onChange={(value) => {
               setFormData((prev) => ({ ...prev, sop: value }));
-              if (errors.sop)
-                setErrors((prev) => ({ ...prev, sop: "" }));
+              if (errors.sop) setErrors((prev) => ({ ...prev, sop: "" }));
             }}
             placeholder="Define the step-by-step procedure for handling this type of issue... Type / or @ to insert tools"
             error={errors.sop}
             availableTools={availableTools}
+            useMockApi={useMockApi}
           />
           <p className="mt-1.5 text-xs text-muted-foreground">
             The AI agent will follow these steps when processing matching alerts

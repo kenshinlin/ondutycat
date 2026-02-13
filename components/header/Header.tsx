@@ -1,15 +1,23 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useTranslations, useLocale } from 'next-intl';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { ChevronDown, Settings, Menu, X, Activity, Wrench, FileText } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import AuthButton from '@/components/auth/AuthButton';
+import { useState } from "react";
+import { useTranslations, useLocale } from "next-intl";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  ChevronDown,
+  Settings,
+  Menu,
+  X,
+  Activity,
+  Wrench,
+  FileText,
+} from "lucide-react";
+import { cn } from "@/utils/utils";
+import AuthButton from "@/components/auth/AuthButton";
 
 export default function Header() {
-  const t = useTranslations('nav');
+  const t = useTranslations("nav");
   const locale = useLocale();
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -18,44 +26,44 @@ export default function Header() {
   // Menu items with submenu support
   const menuItems = [
     {
-      id: 'alerts',
-      label: t('alerts'),
+      id: "alerts",
+      label: t("alerts"),
       href: `/${locale}/alerts`,
       icon: Activity,
     },
     {
-      id: 'issues',
-      label: t('issues'),
+      id: "issues",
+      label: t("issues"),
       href: `/${locale}/issues`,
       icon: FileText,
     },
     {
-      id: 'skills',
-      label: t('skills'),
+      id: "skills",
+      label: t("skills"),
       href: `/${locale}/skills`,
       icon: null,
     },
     {
-      id: 'tools',
-      label: t('tools'),
+      id: "tools",
+      label: t("tools"),
       href: `/${locale}/tools`,
       icon: Wrench,
     },
     {
-      id: 'settings',
-      label: t('settings'),
+      id: "settings",
+      label: t("settings"),
       href: `/${locale}/settings`,
       icon: Settings,
       children: [
-        { id: 'general', label: 'General', href: `/${locale}/settings` },
+        { id: "general", label: "General", href: `/${locale}/settings` },
         {
-          id: 'notifications',
-          label: 'Notifications',
+          id: "notifications",
+          label: "Notifications",
           href: `/${locale}/settings/notifications`,
         },
         {
-          id: 'integrations',
-          label: 'Integrations',
+          id: "integrations",
+          label: "Integrations",
           href: `/${locale}/settings/integrations`,
         },
       ],
@@ -63,7 +71,7 @@ export default function Header() {
   ];
 
   const isActive = (href: string) => {
-    return pathname === href || pathname.startsWith(href + '/');
+    return pathname === href || pathname.startsWith(href + "/");
   };
 
   return (
@@ -92,14 +100,12 @@ export default function Header() {
                   "flex items-center space-x-1.5 py-4 text-sm font-medium transition-colors relative",
                   isActive(item.href)
                     ? "text-gray-900"
-                    : "text-gray-600 hover:text-gray-900"
+                    : "text-gray-600 hover:text-gray-900",
                 )}
               >
                 {item.icon && <item.icon className="w-4 h-4" />}
                 <span>{item.label}</span>
-                {item.children && (
-                  <ChevronDown className="h-3.5 w-3.5" />
-                )}
+                {item.children && <ChevronDown className="h-3.5 w-3.5" />}
                 {isActive(item.href) && (
                   <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-500" />
                 )}
@@ -135,7 +141,11 @@ export default function Header() {
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             className="md:hidden p-1.5 rounded-lg hover:bg-gray-100"
           >
-            {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            {isMobileMenuOpen ? (
+              <X className="h-5 w-5" />
+            ) : (
+              <Menu className="h-5 w-5" />
+            )}
           </button>
         </div>
       </div>
@@ -152,7 +162,7 @@ export default function Header() {
                     "flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium",
                     isActive(item.href)
                       ? "text-gray-900 border-b-2 border-green-500"
-                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-50",
                   )}
                   onClick={() => setIsMobileMenuOpen(false)}
                 >

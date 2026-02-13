@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { AlertCircle, FileJson, Check, Copy } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { useState, useEffect } from "react";
+import { AlertCircle, FileJson, Check, Copy } from "lucide-react";
+import { cn } from "@/utils/utils";
 
 interface MCPConfigFormProps {
   config: Record<string, unknown>;
@@ -24,7 +24,7 @@ const defaultMCPConfig = `{
 
 const mcpExamples = [
   {
-    name: 'Prometheus',
+    name: "Prometheus",
     config: `{
   "mcpServers": {
     "prometheus": {
@@ -38,7 +38,7 @@ const mcpExamples = [
 }`,
   },
   {
-    name: 'Filesystem',
+    name: "Filesystem",
     config: `{
   "mcpServers": {
     "filesystem": {
@@ -49,7 +49,7 @@ const mcpExamples = [
 }`,
   },
   {
-    name: 'PostgreSQL',
+    name: "PostgreSQL",
     config: `{
   "mcpServers": {
     "postgres": {
@@ -66,7 +66,7 @@ const mcpExamples = [
 
 export function MCPConfigForm({ config, onChange, error }: MCPConfigFormProps) {
   const [jsonInput, setJsonInput] = useState<string>(
-    config.mcpConfig ? JSON.stringify(config.mcpConfig, null, 2) : ''
+    config.mcpConfig ? JSON.stringify(config.mcpConfig, null, 2) : "",
   );
   const [parseError, setParseError] = useState<string | null>(null);
   const [copiedExample, setCopiedExample] = useState<string | null>(null);
@@ -90,7 +90,7 @@ export function MCPConfigForm({ config, onChange, error }: MCPConfigFormProps) {
       const parsed = JSON.parse(value);
       onChange({ mcpConfig: parsed });
     } catch {
-      setParseError('Invalid JSON format');
+      setParseError("Invalid JSON format");
       onChange({ mcpConfig: null });
     }
   };
@@ -102,18 +102,21 @@ export function MCPConfigForm({ config, onChange, error }: MCPConfigFormProps) {
       const parsed = JSON.parse(example.config);
       onChange({ mcpConfig: parsed });
     } catch {
-      setParseError('Invalid JSON format');
+      setParseError("Invalid JSON format");
     }
   };
 
-  const handleCopyExample = async (example: (typeof mcpExamples)[0], e: React.MouseEvent) => {
+  const handleCopyExample = async (
+    example: (typeof mcpExamples)[0],
+    e: React.MouseEvent,
+  ) => {
     e.stopPropagation();
     try {
       await navigator.clipboard.writeText(example.config);
       setCopiedExample(example.name);
       setTimeout(() => setCopiedExample(null), 2000);
     } catch (err) {
-      console.error('Failed to copy:', err);
+      console.error("Failed to copy:", err);
     }
   };
 
@@ -170,12 +173,14 @@ export function MCPConfigForm({ config, onChange, error }: MCPConfigFormProps) {
         </div>
         <div
           className={cn(
-            'relative rounded-lg border bg-background overflow-hidden',
-            error || parseError ? 'border-red-500' : 'border-border'
+            "relative rounded-lg border bg-background overflow-hidden",
+            error || parseError ? "border-red-500" : "border-border",
           )}
         >
           <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-gray-50/50">
-            <span className="text-xs font-mono text-muted-foreground">JSON</span>
+            <span className="text-xs font-mono text-muted-foreground">
+              JSON
+            </span>
             {jsonInput && !parseError && (
               <span className="text-xs text-green-600 flex items-center gap-1">
                 <Check className="w-3 h-3" />
@@ -209,9 +214,9 @@ export function MCPConfigForm({ config, onChange, error }: MCPConfigFormProps) {
       {/* Help Text */}
       <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
         <p className="text-xs text-blue-800">
-          <strong>MCP (Model Context Protocol)</strong> allows you to connect external tools and
-          servers. Enter your MCP server configuration in JSON format following the Claude Desktop
-          configuration structure.
+          <strong>MCP (Model Context Protocol)</strong> allows you to connect
+          external tools and servers. Enter your MCP server configuration in
+          JSON format following the Claude Desktop configuration structure.
         </p>
       </div>
     </div>

@@ -1,13 +1,21 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { X, FileText, Search } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { X, FileText, Search, ChevronRight, Loader2, AlertCircle, Plug } from "lucide-react";
+import { cn } from "@/utils/utils";
 
 interface Tool {
   id: string;
   name: string;
   description?: string;
+  type?: "mcp" | "custom_code";
+  config?: Record<string, unknown>;
+}
+
+interface MCPTool {
+  name: string;
+  description: string;
+  params: any;
 }
 
 interface SOPEditorProps {
@@ -16,6 +24,7 @@ interface SOPEditorProps {
   placeholder?: string;
   error?: string;
   availableTools?: Tool[];
+  useMockApi?: boolean; // Enable mock API for testing
 }
 
 // Parse content to HTML with tool highlighting
@@ -23,7 +32,7 @@ function parseContentToHtml(content: string): string {
   // Match tool references in format {{Tool Name}} or @Tool Name
   return content.replace(
     /{{([^}]+)}}|@(\S+)/g,
-    '<span class="tool-highlight" contenteditable="false">$&</span><span contenteditable="false">&nbsp;</span>'
+    '<span class="tool-highlight" contenteditable="false">$&</span><span contenteditable="false">&nbsp;</span>',
   );
 }
 
@@ -45,18 +54,65 @@ function extractPlainText(editor: HTMLElement): string {
   return cloned.textContent || cloned.innerText || "";
 }
 
-export function SOPEditor({ value, onChange, placeholder, error, availableTools = [] }: SOPEditorProps) {
+export function SOPEditor({
+  value,
+  onChange,
+  placeholder,
+  error,
+  availableTools = [],
+  useMockApi = false,
+}: SOPEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const [showToolSelector, setShowToolSelector] = useState(false);
   const [toolSearchQuery, setToolSearchQuery] = useState("");
-  const [cursorPosition, setCursorPosition] = useState<{ top: number; left: number } | null>(null);
+  const [cursorPosition, setCursorPosition] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
+  const [selectedMCPTool, setSelectedMCPTool] = useState<Tool | null>(null);
+  const [mcpTools, setMcpTools] = useState<MCPTool[]>([]);
+  const [isLoadingMcpTools, setIsLoadingMcpTools] = useState(false);
+  const [mcpToolError, setMcpToolError] = useState<string | null>(null);
+  const [showMcpToolSelector, setShowMcpToolSelector] = useState(false);
+  const [mcpSearchQuery, setMcpSearchQuery] = useState("");
 
   // Sync value with editor content
   useEffect(() => {
-    if (editorRef.current && !document.activeElement?.contains(editorRef.current)) {
+    if (
+      editorRef.current &&
+      !document.activeElement?.contains(editorRef.current)
+    ) {
       editorRef.current.innerHTML = parseContentToHtml(value);
     }
   }, [value]);
+
+  // Fetch MCP tools for a selected tool
+  const fetchMCPTools = useCallback(async (tool: Tool) => {
+    setIsLoadingMcpTools(true);
+    setMcpToolError(null);
+    setShowMcpToolSelector(true);
+
+    try {
+      // Use mock API for testing if enabled
+      const apiUrl = useMockApi
+        ? `/api/mcp-tools-mock?tool_id=${tool.id}`
+        : `/api/mcp-tools?tool_id=${tool.id}`;
+
+      const response = await fetch(apiUrl);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to fetch MCP tools");
+      }
+
+      setMcpTools(data.tools || []);
+    } catch (err) {
+      setMcpToolError(err instanceof Error ? err.message : "Failed to fetch MCP tools");
+      setMcpTools([]);
+    } finally {
+      setIsLoadingMcpTools(false);
+    }
+  }, [useMockApi]);
 
   // Handle input changes
   const handleInput = useCallback(() => {
@@ -88,8 +144,8 @@ export function SOPEditor({ value, onChange, placeholder, error, availableTools 
     }
   }, [onChange]);
 
-  // Handle tool selection
-  const handleSelectTool = (tool: Tool) => {
+  // Insert tool name into editor
+  const insertToolName = (toolName: string) => {
     if (!editorRef.current) return;
 
     const selection = window.getSelection();
@@ -103,7 +159,10 @@ export function SOPEditor({ value, onChange, placeholder, error, availableTools 
 
       if (triggerMatch) {
         // Remove the trigger and typed text
-        const newText = text.substring(0, triggerMatch.index) + `{{${tool.name}}} ` + text.substring(range.startOffset);
+        const newText =
+          text.substring(0, triggerMatch.index) +
+          `{{${toolName}}} ` +
+          text.substring(range.startOffset);
         onChange(newText);
 
         // Update editor content
@@ -118,7 +177,10 @@ export function SOPEditor({ value, onChange, placeholder, error, availableTools 
           newRange.setStartAfter(lastToolSpan.nextSibling as Node);
           newRange.collapse(true);
         } else {
-          newRange.setStart(editorRef.current, editorRef.current.childNodes.length);
+          newRange.setStart(
+            editorRef.current,
+            editorRef.current.childNodes.length,
+          );
           newRange.collapse(true);
         }
 
@@ -127,37 +189,103 @@ export function SOPEditor({ value, onChange, placeholder, error, availableTools 
       }
     }
 
-    setShowToolSelector(false);
     setToolSearchQuery("");
+  };
+
+  // Handle tool selection from the first popup
+  const handleSelectTool = (tool: Tool) => {
+    if (tool.type === "mcp") {
+      // For MCP tools, fetch available tools and show second popup
+      setSelectedMCPTool(tool);
+      fetchMCPTools(tool);
+      setShowToolSelector(false);
+    } else {
+      // For non-MCP tools, insert directly
+      insertToolName(tool.name);
+      setShowToolSelector(false);
+      setToolSearchQuery("");
+    }
+  };
+
+  // Handle MCP tool selection from the second popup
+  const handleSelectMCPTool = (mcpTool: MCPTool) => {
+    // Get MCP server name from config
+    const mcpServers = (selectedMCPTool?.config as any)?.mcpServers || {};
+    const serverName = Object.keys(mcpServers)[0] || selectedMCPTool?.name || "mcp";
+
+    // Format as <server_name>.<tool_name>
+    const toolName = `${serverName}.${mcpTool.name}`;
+    insertToolName(toolName);
+
+    setShowMcpToolSelector(false);
+    setSelectedMCPTool(null);
+    setMcpTools([]);
+    setMcpToolError(null);
   };
 
   // Handle keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Escape" && showToolSelector) {
-      setShowToolSelector(false);
-      e.preventDefault();
+    if (e.key === "Escape") {
+      if (showMcpToolSelector) {
+        setShowMcpToolSelector(false);
+        setSelectedMCPTool(null);
+        setMcpTools([]);
+        setMcpToolError(null);
+        e.preventDefault();
+      } else if (showToolSelector) {
+        setShowToolSelector(false);
+        e.preventDefault();
+      }
     }
   };
 
   // Filter tools based on search query
   const filteredTools = availableTools.filter((tool) =>
-    tool.name.toLowerCase().includes(toolSearchQuery.toLowerCase())
+    tool.name.toLowerCase().includes(toolSearchQuery.toLowerCase()),
   );
 
   // Default mock tools if none provided
-  const displayTools = availableTools.length > 0 ? filteredTools : [
-    { id: "1", name: "Prometheus_Query", description: "Query Prometheus metrics" },
-    { id: "2", name: "Database_Health_Check", description: "Check database status" },
-    { id: "3", name: "Log_Analyzer", description: "Analyze log files" },
-    { id: "4", name: "API_Check", description: "Check API endpoint health" },
-    { id: "5", name: "Network_Diagnostic", description: "Run network diagnostics" },
-  ].filter(tool => tool.name.toLowerCase().includes(toolSearchQuery.toLowerCase()));
+  const displayTools =
+    availableTools.length > 0
+      ? filteredTools
+      : [
+          {
+            id: "1",
+            name: "Prometheus_Query",
+            description: "Query Prometheus metrics",
+          },
+          {
+            id: "2",
+            name: "Database_Health_Check",
+            description: "Check database status",
+          },
+          { id: "3", name: "Log_Analyzer", description: "Analyze log files", type: "mcp" as const },
+          {
+            id: "4",
+            name: "API_Check",
+            description: "Check API endpoint health",
+          },
+          {
+            id: "5",
+            name: "Network_Diagnostic",
+            description: "Run network diagnostics",
+          },
+        ].filter((tool) =>
+          tool.name.toLowerCase().includes(toolSearchQuery.toLowerCase()),
+        );
+
+  // Filter MCP tools based on search query
+  const filteredMcpTools = mcpTools.filter((tool) =>
+    tool.name.toLowerCase().includes(mcpSearchQuery.toLowerCase()) ||
+    tool.description.toLowerCase().includes(mcpSearchQuery.toLowerCase())
+  );
 
   return (
     <div className="relative">
       <div className="flex items-center justify-between mb-1.5">
         <label className="block text-sm font-medium text-card-foreground">
-          Standard Operating Procedure (SOP) <span className="text-red-500">*</span>
+          Standard Operating Procedure (SOP){" "}
+          <span className="text-red-500">*</span>
         </label>
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <FileText className="w-3.5 h-3.5" />
@@ -177,7 +305,10 @@ export function SOPEditor({ value, onChange, placeholder, error, availableTools 
           error ? "border-red-500" : "border-border",
         )}
         style={{ outline: "none" }}
-        data-placeholder={placeholder || "Define the step-by-step procedure... Type / or @ to insert tools"}
+        data-placeholder={
+          placeholder ||
+          "Define the step-by-step procedure... Type / or @ to insert tools"
+        }
       />
 
       {/* Custom placeholder */}
@@ -245,17 +376,27 @@ export function SOPEditor({ value, onChange, placeholder, error, availableTools 
                   No tools found
                 </div>
               ) : (
-                displayTools.map((tool, index) => (
+                displayTools.map((tool) => (
                   <button
                     key={tool.id}
                     onClick={() => handleSelectTool(tool)}
-                    className="w-full px-3 py-2.5 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors"
+                    className="w-full px-3 py-2.5 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors group"
                   >
-                    <div className="text-sm font-medium text-card-foreground">
-                      {tool.name}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {tool.type === "mcp" && (
+                          <Plug className="w-3.5 h-3.5 text-blue-500" />
+                        )}
+                        <div className="text-sm font-medium text-card-foreground">
+                          {tool.name}
+                        </div>
+                      </div>
+                      {tool.type === "mcp" && (
+                        <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                      )}
                     </div>
                     {tool.description && (
-                      <div className="text-xs text-muted-foreground mt-0.5">
+                      <div className="text-xs text-muted-foreground mt-0.5 ml-6">
                         {tool.description}
                       </div>
                     )}
@@ -267,6 +408,91 @@ export function SOPEditor({ value, onChange, placeholder, error, availableTools 
             {/* Footer hint */}
             <div className="px-3 py-1.5 bg-gray-50 border-t border-border text-xs text-muted-foreground">
               Use ↑↓ to navigate, Enter to select, Esc to close
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* MCP Tool Selector Popup */}
+      {showMcpToolSelector && selectedMCPTool && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => {
+              setShowMcpToolSelector(false);
+              setSelectedMCPTool(null);
+              setMcpTools([]);
+              setMcpToolError(null);
+            }}
+          />
+
+          {/* Popup */}
+          <div
+            className="fixed z-50 w-96 bg-white rounded-lg shadow-xl border border-border overflow-hidden animate-scale-in"
+            style={{
+              top: cursorPosition?.top || 0,
+              left: cursorPosition?.left || 0,
+            }}
+          >
+            {/* Header */}
+            <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-blue-50">
+              <Plug className="w-4 h-4 text-blue-600" />
+              <div className="flex-1">
+                <input
+                  type="text"
+                  value={mcpSearchQuery}
+                  onChange={(e) => setMcpSearchQuery(e.target.value)}
+                  placeholder={`Search ${selectedMCPTool.name} tools...`}
+                  className="w-full bg-transparent border-none text-sm focus:outline-none font-medium text-blue-900"
+                  autoFocus
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </div>
+              {isLoadingMcpTools && (
+                <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
+              )}
+            </div>
+
+            {/* Tool List */}
+            <div className="max-h-64 overflow-y-auto">
+              {isLoadingMcpTools ? (
+                <div className="px-3 py-8 text-center text-sm text-muted-foreground flex flex-col items-center gap-2">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Loading MCP tools...</span>
+                </div>
+              ) : mcpToolError ? (
+                <div className="px-3 py-8 text-center text-sm text-red-600 flex flex-col items-center gap-2">
+                  <AlertCircle className="w-5 h-5" />
+                  <span>{mcpToolError}</span>
+                </div>
+              ) : filteredMcpTools.length === 0 ? (
+                <div className="px-3 py-8 text-center text-sm text-muted-foreground">
+                  {mcpSearchQuery ? "No matching tools found" : "No MCP tools available"}
+                </div>
+              ) : (
+                filteredMcpTools.map((mcpTool, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleSelectMCPTool(mcpTool)}
+                    className="w-full px-3 py-2.5 text-left hover:bg-blue-50 border-b border-gray-100 last:border-b-0 transition-colors group"
+                  >
+                    <div className="text-sm font-medium text-card-foreground group-hover:text-blue-700 transition-colors">
+                      {mcpTool.name}
+                    </div>
+                    {mcpTool.description && (
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        {mcpTool.description}
+                      </div>
+                    )}
+                  </button>
+                ))
+              )}
+            </div>
+
+            {/* Footer hint */}
+            <div className="px-3 py-1.5 bg-blue-50 border-t border-border text-xs text-blue-700">
+              Select an MCP tool to insert as {`<server>.<tool>`}
             </div>
           </div>
         </>

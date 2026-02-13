@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { X, Plug, Code2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/utils";
 import { MCPConfigForm } from "./MCPConfigForm";
 import { CustomCodeEditor } from "./CustomCodeEditor";
 

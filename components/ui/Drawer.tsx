@@ -2,7 +2,7 @@
 
 import { ReactNode, useEffect } from "react";
 import { X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/utils";
 import { lockScroll, unlockScroll } from "@/lib/scroll-lock";
 
 export interface DrawerProps {
@@ -62,7 +62,7 @@ export function Drawer({
       <div
         className={cn(
           "absolute inset-0 bg-black/50 animate-fade-in",
-          closeOnBackdropClick && "cursor-pointer"
+          closeOnBackdropClick && "cursor-pointer",
         )}
         onClick={closeOnBackdropClick ? onClose : undefined}
       />

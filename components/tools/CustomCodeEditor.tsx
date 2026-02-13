@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { AlertCircle, Check, Play, Code2, Info } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { useState, useEffect } from "react";
+import { AlertCircle, Check, Play, Code2, Info } from "lucide-react";
+import { cn } from "@/utils/utils";
 
 interface CustomCodeEditorProps {
   config: Record<string, unknown>;
@@ -33,7 +33,7 @@ async function execute(params) {
 
 const codeExamples = [
   {
-    name: 'HTTP Request',
+    name: "HTTP Request",
     code: `async function execute(params) {
   const { url, method = 'GET', body } = params;
 
@@ -58,17 +58,20 @@ const codeExamples = [
   };
 }`,
     parameters: {
-      type: 'object',
+      type: "object",
       properties: {
-        url: { type: 'string', description: 'The URL to request' },
-        method: { type: 'string', description: 'HTTP method (GET, POST, etc.)' },
-        body: { type: 'object', description: 'Request body for POST/PUT' },
+        url: { type: "string", description: "The URL to request" },
+        method: {
+          type: "string",
+          description: "HTTP method (GET, POST, etc.)",
+        },
+        body: { type: "object", description: "Request body for POST/PUT" },
       },
-      required: ['url'],
+      required: ["url"],
     },
   },
   {
-    name: 'Database Query',
+    name: "Database Query",
     code: `async function execute(params) {
   const { query, parameters = [] } = params;
 
@@ -88,16 +91,16 @@ const codeExamples = [
   };
 }`,
     parameters: {
-      type: 'object',
+      type: "object",
       properties: {
-        query: { type: 'string', description: 'SQL query to execute' },
-        parameters: { type: 'array', description: 'Query parameters' },
+        query: { type: "string", description: "SQL query to execute" },
+        parameters: { type: "array", description: "Query parameters" },
       },
-      required: ['query'],
+      required: ["query"],
     },
   },
   {
-    name: 'Log Analysis',
+    name: "Log Analysis",
     code: `async function execute(params) {
   const { logContent, pattern } = params;
 
@@ -121,20 +124,24 @@ const codeExamples = [
   };
 }`,
     parameters: {
-      type: 'object',
+      type: "object",
       properties: {
-        logContent: { type: 'string', description: 'Log content to analyze' },
-        pattern: { type: 'string', description: 'Pattern to search for' },
+        logContent: { type: "string", description: "Log content to analyze" },
+        pattern: { type: "string", description: "Pattern to search for" },
       },
-      required: ['logContent', 'pattern'],
+      required: ["logContent", "pattern"],
     },
   },
 ];
 
-export function CustomCodeEditor({ config, onChange, error }: CustomCodeEditorProps) {
-  const [code, setCode] = useState<string>((config.code as string) || '');
+export function CustomCodeEditor({
+  config,
+  onChange,
+  error,
+}: CustomCodeEditorProps) {
+  const [code, setCode] = useState<string>((config.code as string) || "");
   const [parameters, setParameters] = useState<string>(
-    config.parameters ? JSON.stringify(config.parameters, null, 2) : ''
+    config.parameters ? JSON.stringify(config.parameters, null, 2) : "",
   );
   const [parseError, setParseError] = useState<string | null>(null);
 
@@ -165,7 +172,7 @@ export function CustomCodeEditor({ config, onChange, error }: CustomCodeEditorPr
       try {
         parsedParams = JSON.parse(paramsValue);
       } catch {
-        setParseError('Invalid parameters JSON');
+        setParseError("Invalid parameters JSON");
         return;
       }
     }
@@ -228,12 +235,14 @@ export function CustomCodeEditor({ config, onChange, error }: CustomCodeEditorPr
         </div>
         <div
           className={cn(
-            'relative rounded-lg border bg-background overflow-hidden',
-            error ? 'border-red-500' : 'border-border'
+            "relative rounded-lg border bg-background overflow-hidden",
+            error ? "border-red-500" : "border-border",
           )}
         >
           <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-gray-50/50">
-            <span className="text-xs font-mono text-muted-foreground">JavaScript</span>
+            <span className="text-xs font-mono text-muted-foreground">
+              JavaScript
+            </span>
             {code && (
               <span className="text-xs text-green-600 flex items-center gap-1">
                 <Check className="w-3 h-3" />
@@ -267,12 +276,14 @@ export function CustomCodeEditor({ config, onChange, error }: CustomCodeEditorPr
         </div>
         <div
           className={cn(
-            'relative rounded-lg border bg-background overflow-hidden',
-            parseError ? 'border-red-500' : 'border-border'
+            "relative rounded-lg border bg-background overflow-hidden",
+            parseError ? "border-red-500" : "border-border",
           )}
         >
           <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-gray-50/50">
-            <span className="text-xs font-mono text-muted-foreground">JSON Schema</span>
+            <span className="text-xs font-mono text-muted-foreground">
+              JSON Schema
+            </span>
             {parameters && !parseError && (
               <span className="text-xs text-green-600 flex items-center gap-1">
                 <Check className="w-3 h-3" />
@@ -309,23 +320,27 @@ export function CustomCodeEditor({ config, onChange, error }: CustomCodeEditorPr
           <Info className="w-4 h-4 text-amber-600 flex-none mt-0.5" />
           <div className="text-xs text-amber-800 space-y-1">
             <p>
-              <strong>Sandbox Environment:</strong> Your code runs in a secure sandbox with access
-              to:
+              <strong>Sandbox Environment:</strong> Your code runs in a secure
+              sandbox with access to:
             </p>
             <ul className="list-disc list-inside space-y-0.5 ml-2">
               <li>
-                <code className="bg-amber-100 px-1 rounded">fetch()</code> - Make HTTP requests
+                <code className="bg-amber-100 px-1 rounded">fetch()</code> -
+                Make HTTP requests
               </li>
               <li>
-                <code className="bg-amber-100 px-1 rounded">console.log()</code> - Debug output
+                <code className="bg-amber-100 px-1 rounded">console.log()</code>{" "}
+                - Debug output
               </li>
               <li>
-                <code className="bg-amber-100 px-1 rounded">params</code> - Input parameters object
+                <code className="bg-amber-100 px-1 rounded">params</code> -
+                Input parameters object
               </li>
             </ul>
             <p className="mt-2">
-              <strong>Note:</strong> The function must be named <code className="bg-amber-100 px-1 rounded">execute</code> and return a
-              Promise.
+              <strong>Note:</strong> The function must be named{" "}
+              <code className="bg-amber-100 px-1 rounded">execute</code> and
+              return a Promise.
             </p>
           </div>
         </div>

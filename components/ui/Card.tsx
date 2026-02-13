@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/utils";
 
 interface CardProps {
   children: React.ReactNode;
@@ -7,7 +7,12 @@ interface CardProps {
 
 export function Card({ children, className }: CardProps) {
   return (
-    <div className={cn("bg-card rounded-lg border border-border shadow-sm", className)}>
+    <div
+      className={cn(
+        "bg-card rounded-lg border border-border shadow-sm",
+        className,
+      )}
+    >
       {children}
     </div>
   );
@@ -32,11 +37,7 @@ interface CardContentProps {
 }
 
 export function CardContent({ children, className }: CardContentProps) {
-  return (
-    <div className={cn("p-4", className)}>
-      {children}
-    </div>
-  );
+  return <div className={cn("p-4", className)}>{children}</div>;
 }
 
 interface CardTitleProps {

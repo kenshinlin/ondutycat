@@ -3,10 +3,15 @@
 import { useState, useEffect } from "react";
 import { Plug, Code2, AlertCircle, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { Drawer, DrawerHeader, DrawerBody, DrawerFooter } from "@/components/ui/Drawer";
+import {
+  Drawer,
+  DrawerHeader,
+  DrawerBody,
+  DrawerFooter,
+} from "@/components/ui/Drawer";
 import { MCPConfigForm } from "./MCPConfigForm";
 import { CustomCodeEditor } from "./CustomCodeEditor";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/utils";
 
 type ToolType = "mcp" | "custom_code";
 type ToolStatus = "active" | "inactive";
@@ -141,8 +146,7 @@ export function ToolDrawer({ isOpen, onClose, onSave, tool }: ToolDrawerProps) {
               value={formData.name}
               onChange={(e) => {
                 setFormData((prev) => ({ ...prev, name: e.target.value }));
-                if (errors.name)
-                  setErrors((prev) => ({ ...prev, name: "" }));
+                if (errors.name) setErrors((prev) => ({ ...prev, name: "" }));
               }}
               placeholder="e.g., Prometheus Query"
               className={cn(
@@ -203,9 +207,7 @@ export function ToolDrawer({ isOpen, onClose, onSave, tool }: ToolDrawerProps) {
                   <div
                     className={cn(
                       "w-10 h-10 rounded-lg flex items-center justify-center",
-                      formData.type === "mcp"
-                        ? "bg-primary/10"
-                        : "bg-gray-100",
+                      formData.type === "mcp" ? "bg-primary/10" : "bg-gray-100",
                     )}
                   >
                     <Plug

@@ -15,10 +15,15 @@ import {
   Copy,
   Check,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/utils";
 import { Badge } from "@/components/ui/Badge";
 
-type IssueStatus = "analyzing" | "in_progress" | "resolved" | "false_positive" | "unable_to_resolve";
+type IssueStatus =
+  | "analyzing"
+  | "in_progress"
+  | "resolved"
+  | "false_positive"
+  | "unable_to_resolve";
 
 interface IssueLog {
   id: string;
@@ -62,7 +67,10 @@ interface IssueDetailDrawerProps {
 
 const statusConfig: Record<
   IssueStatus,
-  { variant: "success" | "warning" | "danger" | "info" | "default"; label: string }
+  {
+    variant: "success" | "warning" | "danger" | "info" | "default";
+    label: string;
+  }
 > = {
   resolved: { variant: "success", label: "Resolved" },
   in_progress: { variant: "warning", label: "In Progress" },
@@ -108,7 +116,11 @@ const logTypeConfig: Record<
   },
 };
 
-export function IssueDetailDrawer({ isOpen, onClose, issue }: IssueDetailDrawerProps) {
+export function IssueDetailDrawer({
+  isOpen,
+  onClose,
+  issue,
+}: IssueDetailDrawerProps) {
   const [copiedLogId, setCopiedLogId] = useState<string | null>(null);
   const [expandedAlerts, setExpandedAlerts] = useState<Set<string>>(new Set());
   const [expandedLogs, setExpandedLogs] = useState<Set<string>>(new Set());
@@ -170,7 +182,9 @@ export function IssueDetailDrawer({ isOpen, onClose, issue }: IssueDetailDrawerP
                 </h2>
                 <Badge variant={statusConf.variant}>{statusConf.label}</Badge>
               </div>
-              <p className="text-sm text-muted-foreground">Issue Details & AI Processing</p>
+              <p className="text-sm text-muted-foreground">
+                Issue Details & AI Processing
+              </p>
             </div>
           </div>
           <button
@@ -189,7 +203,9 @@ export function IssueDetailDrawer({ isOpen, onClose, issue }: IssueDetailDrawerP
               <h3 className="text-xl font-semibold text-card-foreground mb-2">
                 {issue.title}
               </h3>
-              <p className="text-sm text-muted-foreground">{issue.description}</p>
+              <p className="text-sm text-muted-foreground">
+                {issue.description}
+              </p>
             </div>
 
             {/* AI Conclusion */}
@@ -231,7 +247,9 @@ export function IssueDetailDrawer({ isOpen, onClose, issue }: IssueDetailDrawerP
               <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Sparkles className="w-4 h-4 text-purple-600" />
-                  <p className="text-sm font-medium text-purple-900">Matched Skill</p>
+                  <p className="text-sm font-medium text-purple-900">
+                    Matched Skill
+                  </p>
                 </div>
                 <p className="text-base font-semibold text-card-foreground">
                   {issue.skillName}
@@ -255,7 +273,7 @@ export function IssueDetailDrawer({ isOpen, onClose, issue }: IssueDetailDrawerP
                       key={alert.id}
                       className={cn(
                         "border rounded-lg overflow-hidden",
-                        severityColors[alert.severity]
+                        severityColors[alert.severity],
                       )}
                     >
                       <div
@@ -285,12 +303,18 @@ export function IssueDetailDrawer({ isOpen, onClose, issue }: IssueDetailDrawerP
                         <div className="px-3 pb-3 pt-2 border-t border-black/10">
                           <div className="space-y-2 text-xs">
                             <div className="flex items-center gap-2">
-                              <span className="font-medium opacity-70">Severity:</span>
-                              <span className="font-semibold uppercase">{alert.severity}</span>
+                              <span className="font-medium opacity-70">
+                                Severity:
+                              </span>
+                              <span className="font-semibold uppercase">
+                                {alert.severity}
+                              </span>
                             </div>
                             <div className="flex items-center gap-2">
                               <Clock className="w-3 h-3 opacity-70" />
-                              <span>{new Date(alert.triggeredAt).toLocaleString()}</span>
+                              <span>
+                                {new Date(alert.triggeredAt).toLocaleString()}
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -326,7 +350,7 @@ export function IssueDetailDrawer({ isOpen, onClose, issue }: IssueDetailDrawerP
                           <div
                             className={cn(
                               "relative z-10 w-10 h-10 rounded-full border-2 border-white flex items-center justify-center flex-none",
-                              config.bgColor
+                              config.bgColor,
                             )}
                           >
                             <LogIcon className={cn("w-4 h-4", config.color)} />
@@ -337,7 +361,8 @@ export function IssueDetailDrawer({ isOpen, onClose, issue }: IssueDetailDrawerP
                             <div
                               className={cn(
                                 "border rounded-lg overflow-hidden transition-colors",
-                                log.logType === "conclusion" && "border-green-200 bg-green-50"
+                                log.logType === "conclusion" &&
+                                  "border-green-200 bg-green-50",
                               )}
                             >
                               <div
@@ -349,13 +374,15 @@ export function IssueDetailDrawer({ isOpen, onClose, issue }: IssueDetailDrawerP
                                     <span
                                       className={cn(
                                         "text-xs font-semibold uppercase",
-                                        config.color
+                                        config.color,
                                       )}
                                     >
                                       {config.label}
                                     </span>
                                     <span className="text-xs text-muted-foreground">
-                                      {new Date(log.createdAt).toLocaleTimeString()}
+                                      {new Date(
+                                        log.createdAt,
+                                      ).toLocaleTimeString()}
                                     </span>
                                   </div>
                                   <div className="flex items-center gap-1">
@@ -382,21 +409,27 @@ export function IssueDetailDrawer({ isOpen, onClose, issue }: IssueDetailDrawerP
                                 <p
                                   className={cn(
                                     "text-sm",
-                                    isExpanded ? "text-gray-700" : "text-gray-600 line-clamp-2"
+                                    isExpanded
+                                      ? "text-gray-700"
+                                      : "text-gray-600 line-clamp-2",
                                   )}
                                 >
                                   {log.content}
                                 </p>
                               </div>
 
-                              {isExpanded && log.metadata && Object.keys(log.metadata).length > 0 && (
-                                <div className="px-3 pb-3 pt-2 border-t border-black/10 bg-black/5">
-                                  <p className="text-xs font-medium text-gray-700 mb-2">Metadata:</p>
-                                  <pre className="text-xs bg-gray-100 rounded p-2 overflow-x-auto">
-                                    {JSON.stringify(log.metadata, null, 2)}
-                                  </pre>
-                                </div>
-                              )}
+                              {isExpanded &&
+                                log.metadata &&
+                                Object.keys(log.metadata).length > 0 && (
+                                  <div className="px-3 pb-3 pt-2 border-t border-black/10 bg-black/5">
+                                    <p className="text-xs font-medium text-gray-700 mb-2">
+                                      Metadata:
+                                    </p>
+                                    <pre className="text-xs bg-gray-100 rounded p-2 overflow-x-auto">
+                                      {JSON.stringify(log.metadata, null, 2)}
+                                    </pre>
+                                  </div>
+                                )}
                             </div>
                           </div>
                         </div>
@@ -421,16 +454,22 @@ export function IssueDetailDrawer({ isOpen, onClose, issue }: IssueDetailDrawerP
               )}
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Created At</span>
-                <span className="font-medium">{new Date(issue.createdAt).toLocaleString()}</span>
+                <span className="font-medium">
+                  {new Date(issue.createdAt).toLocaleString()}
+                </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Updated At</span>
-                <span className="font-medium">{new Date(issue.updatedAt).toLocaleString()}</span>
+                <span className="font-medium">
+                  {new Date(issue.updatedAt).toLocaleString()}
+                </span>
               </div>
               {issue.resolvedAt && (
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Resolved At</span>
-                  <span className="font-medium">{new Date(issue.resolvedAt).toLocaleString()}</span>
+                  <span className="font-medium">
+                    {new Date(issue.resolvedAt).toLocaleString()}
+                  </span>
                 </div>
               )}
             </div>

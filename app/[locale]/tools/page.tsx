@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useTranslations } from 'next-intl';
+import { useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   Wrench,
   Search,
@@ -16,14 +16,14 @@ import {
   PowerOff,
   Clock,
   User,
-} from 'lucide-react';
-import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
-import { cn } from '@/lib/utils';
-import { ToolDrawer } from '@/components/tools/ToolDrawer';
+} from "lucide-react";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { cn } from "@/utils/utils";
+import { ToolDrawer } from "@/components/tools/ToolDrawer";
 
-type ToolType = 'mcp' | 'custom_code';
-type ToolStatus = 'active' | 'inactive';
+type ToolType = "mcp" | "custom_code";
+type ToolStatus = "active" | "inactive";
 
 interface Tool {
   id: string;
@@ -39,29 +39,29 @@ interface Tool {
 
 const mockTools: Tool[] = [
   {
-    id: 'tool-001',
-    name: 'Prometheus Query',
-    description: 'Query Prometheus metrics and alerts',
-    type: 'mcp',
+    id: "tool-001",
+    name: "Prometheus Query",
+    description: "Query Prometheus metrics and alerts",
+    type: "mcp",
     config: {
       mcpServers: {
         prometheus: {
-          command: 'npx',
-          args: ['-y', '@anthropic-ai/mcp-prometheus'],
-          env: { PROMETHEUS_URL: 'http://localhost:9090' },
+          command: "npx",
+          args: ["-y", "@anthropic-ai/mcp-prometheus"],
+          env: { PROMETHEUS_URL: "http://localhost:9090" },
         },
       },
     },
-    status: 'active',
-    createdBy: 'admin@example.com',
-    createdAt: '2025-01-15T10:00:00Z',
-    updatedAt: '2025-01-15T10:00:00Z',
+    status: "active",
+    createdBy: "admin@example.com",
+    createdAt: "2025-01-15T10:00:00Z",
+    updatedAt: "2025-01-15T10:00:00Z",
   },
   {
-    id: 'tool-002',
-    name: 'Database Health Check',
-    description: 'Check database connection and run health queries',
-    type: 'custom_code',
+    id: "tool-002",
+    name: "Database Health Check",
+    description: "Check database connection and run health queries",
+    type: "custom_code",
     config: {
       code: `async function execute(params) {
   const { connectionString, query } = params;
@@ -69,23 +69,23 @@ const mockTools: Tool[] = [
   return { status: 'healthy', connections: 10 };
 }`,
       parameters: {
-        type: 'object',
+        type: "object",
         properties: {
-          connectionString: { type: 'string' },
-          query: { type: 'string' },
+          connectionString: { type: "string" },
+          query: { type: "string" },
         },
       },
     },
-    status: 'active',
-    createdBy: 'devops@example.com',
-    createdAt: '2025-01-14T09:30:00Z',
-    updatedAt: '2025-01-14T09:30:00Z',
+    status: "active",
+    createdBy: "devops@example.com",
+    createdAt: "2025-01-14T09:30:00Z",
+    updatedAt: "2025-01-14T09:30:00Z",
   },
   {
-    id: 'tool-003',
-    name: 'Log Analyzer',
-    description: 'Analyze log files for patterns and errors',
-    type: 'custom_code',
+    id: "tool-003",
+    name: "Log Analyzer",
+    description: "Analyze log files for patterns and errors",
+    type: "custom_code",
     config: {
       code: `async function execute(params) {
   const { logPath, pattern } = params;
@@ -93,30 +93,35 @@ const mockTools: Tool[] = [
   return { matches: [], count: 0 };
 }`,
       parameters: {
-        type: 'object',
+        type: "object",
         properties: {
-          logPath: { type: 'string' },
-          pattern: { type: 'string' },
+          logPath: { type: "string" },
+          pattern: { type: "string" },
         },
       },
     },
-    status: 'inactive',
-    createdBy: 'admin@example.com',
-    createdAt: '2025-01-13T14:00:00Z',
-    updatedAt: '2025-01-14T08:00:00Z',
+    status: "inactive",
+    createdBy: "admin@example.com",
+    createdAt: "2025-01-13T14:00:00Z",
+    updatedAt: "2025-01-14T08:00:00Z",
   },
 ];
 
-const typeConfig: Record<ToolType, { icon: typeof Code2; label: string; variant: 'info' | 'default' }> = {
-  mcp: { icon: Plug, label: 'MCP', variant: 'info' },
-  custom_code: { icon: Code2, label: 'Custom Code', variant: 'default' },
+const typeConfig: Record<
+  ToolType,
+  { icon: typeof Code2; label: string; variant: "info" | "default" }
+> = {
+  mcp: { icon: Plug, label: "MCP", variant: "info" },
+  custom_code: { icon: Code2, label: "Custom Code", variant: "default" },
 };
 
 export default function ToolsPage() {
-  const t = useTranslations('tools');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedType, setSelectedType] = useState<ToolType | 'all'>('all');
-  const [selectedStatus, setSelectedStatus] = useState<ToolStatus | 'all'>('all');
+  const t = useTranslations("tools");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedType, setSelectedType] = useState<ToolType | "all">("all");
+  const [selectedStatus, setSelectedStatus] = useState<ToolStatus | "all">(
+    "all",
+  );
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTool, setEditingTool] = useState<Tool | null>(null);
 
@@ -124,8 +129,9 @@ export default function ToolsPage() {
     const matchesSearch =
       tool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       tool.description?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesType = selectedType === 'all' || tool.type === selectedType;
-    const matchesStatus = selectedStatus === 'all' || tool.status === selectedStatus;
+    const matchesType = selectedType === "all" || tool.type === selectedType;
+    const matchesStatus =
+      selectedStatus === "all" || tool.status === selectedStatus;
     return matchesSearch && matchesType && matchesStatus;
   });
 
@@ -141,17 +147,21 @@ export default function ToolsPage() {
 
   const handleDeleteTool = (toolId: string) => {
     // TODO: Implement delete logic
-    console.log('Delete tool:', toolId);
+    console.log("Delete tool:", toolId);
   };
 
   const handleToggleStatus = (tool: Tool) => {
     // TODO: Implement status toggle logic
-    console.log('Toggle status:', tool.id, tool.status === 'active' ? 'inactive' : 'active');
+    console.log(
+      "Toggle status:",
+      tool.id,
+      tool.status === "active" ? "inactive" : "active",
+    );
   };
 
   const handleSaveTool = (toolData: Partial<Tool>) => {
     // TODO: Implement save logic
-    console.log('Save tool:', toolData);
+    console.log("Save tool:", toolData);
     setIsModalOpen(false);
   };
 
@@ -165,26 +175,32 @@ export default function ToolsPage() {
               <Wrench className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h1 className="text-lg font-semibold text-foreground">Tool Management</h1>
-              <p className="text-sm text-muted-foreground">Register and manage tools for AI agents</p>
+              <h1 className="text-lg font-semibold text-foreground">
+                Tool Management
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                Register and manage tools for AI agents
+              </p>
             </div>
           </div>
 
           {/* Stats */}
           <div className="flex items-center gap-6">
             <div className="text-center">
-              <div className="text-2xl font-bold text-foreground">{filteredTools.length}</div>
+              <div className="text-2xl font-bold text-foreground">
+                {filteredTools.length}
+              </div>
               <div className="text-xs text-muted-foreground">Total</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-green-600">
-                {filteredTools.filter((t) => t.status === 'active').length}
+                {filteredTools.filter((t) => t.status === "active").length}
               </div>
               <div className="text-xs text-muted-foreground">Active</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-blue-600">
-                {filteredTools.filter((t) => t.type === 'mcp').length}
+                {filteredTools.filter((t) => t.type === "mcp").length}
               </div>
               <div className="text-xs text-muted-foreground">MCP</div>
             </div>
@@ -208,7 +224,9 @@ export default function ToolsPage() {
           {/* Type Filter */}
           <select
             value={selectedType}
-            onChange={(e) => setSelectedType(e.target.value as ToolType | 'all')}
+            onChange={(e) =>
+              setSelectedType(e.target.value as ToolType | "all")
+            }
             className="h-9 px-3 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           >
             <option value="all">All Types</option>
@@ -219,7 +237,9 @@ export default function ToolsPage() {
           {/* Status Filter */}
           <select
             value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value as ToolStatus | 'all')}
+            onChange={(e) =>
+              setSelectedStatus(e.target.value as ToolStatus | "all")
+            }
             className="h-9 px-3 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           >
             <option value="all">All Status</option>
@@ -254,8 +274,8 @@ export default function ToolsPage() {
                 <div
                   key={tool.id}
                   className={cn(
-                    'bg-card rounded-lg border border-border shadow-sm hover:shadow-md transition-all',
-                    tool.status === 'inactive' && 'opacity-60'
+                    "bg-card rounded-lg border border-border shadow-sm hover:shadow-md transition-all",
+                    tool.status === "inactive" && "opacity-60",
                   )}
                 >
                   {/* Card Header */}
@@ -264,23 +284,39 @@ export default function ToolsPage() {
                       <div className="flex items-center gap-3">
                         <div
                           className={cn(
-                            'w-10 h-10 rounded-lg flex items-center justify-center',
-                            tool.type === 'mcp' ? 'bg-blue-100' : 'bg-purple-100'
+                            "w-10 h-10 rounded-lg flex items-center justify-center",
+                            tool.type === "mcp"
+                              ? "bg-blue-100"
+                              : "bg-purple-100",
                           )}
                         >
                           <TypeIcon
-                            className={cn('w-5 h-5', tool.type === 'mcp' ? 'text-blue-600' : 'text-purple-600')}
+                            className={cn(
+                              "w-5 h-5",
+                              tool.type === "mcp"
+                                ? "text-blue-600"
+                                : "text-purple-600",
+                            )}
                           />
                         </div>
                         <div>
-                          <h3 className="text-sm font-semibold text-card-foreground">{tool.name}</h3>
-                          <Badge variant={typeConfig[tool.type].variant} className="mt-1">
+                          <h3 className="text-sm font-semibold text-card-foreground">
+                            {tool.name}
+                          </h3>
+                          <Badge
+                            variant={typeConfig[tool.type].variant}
+                            className="mt-1"
+                          >
                             {typeConfig[tool.type].label}
                           </Badge>
                         </div>
                       </div>
                       <div className="flex items-center gap-1">
-                        <Badge variant={tool.status === 'active' ? 'success' : 'default'}>
+                        <Badge
+                          variant={
+                            tool.status === "active" ? "success" : "default"
+                          }
+                        >
                           {tool.status}
                         </Badge>
                       </div>
@@ -290,7 +326,7 @@ export default function ToolsPage() {
                   {/* Card Content */}
                   <div className="p-4">
                     <p className="text-sm text-muted-foreground line-clamp-2 min-h-[40px]">
-                      {tool.description || 'No description provided'}
+                      {tool.description || "No description provided"}
                     </p>
                   </div>
 
@@ -306,16 +342,20 @@ export default function ToolsPage() {
                         )}
                         <div className="flex items-center gap-1">
                           <Clock className="w-3 h-3" />
-                          <span>{new Date(tool.updatedAt).toLocaleDateString()}</span>
+                          <span>
+                            {new Date(tool.updatedAt).toLocaleDateString()}
+                          </span>
                         </div>
                       </div>
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() => handleToggleStatus(tool)}
                           className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors cursor-pointer"
-                          title={tool.status === 'active' ? 'Deactivate' : 'Activate'}
+                          title={
+                            tool.status === "active" ? "Deactivate" : "Activate"
+                          }
                         >
-                          {tool.status === 'active' ? (
+                          {tool.status === "active" ? (
                             <PowerOff className="w-4 h-4" />
                           ) : (
                             <Power className="w-4 h-4" />
