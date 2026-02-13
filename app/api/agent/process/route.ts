@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { agentRunner } from "@/lib/agent";
+import { createAgentRunner } from "@/lib/agent";
 import { prisma } from "@/lib/prisma";
 import { Alert } from "@prisma/client";
 
@@ -75,8 +75,9 @@ export async function GET(request: NextRequest) {
         };
       } else {
         // Actual processing
+        const runner = createAgentRunner();
         const tenantResults =
-          await agentRunner.processTenantAlerts(tenantAlerts);
+          await runner.processTenantAlerts(tenantAlerts);
         results[tenantId] = {
           processed: tenantResults.length,
           results: tenantResults,

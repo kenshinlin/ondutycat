@@ -2,7 +2,7 @@ import { ChatAnthropic } from "@langchain/anthropic";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
-import type { AgentProcessingResult, AgentLog } from "./types";
+import type { AgentProcessingResult } from "./types";
 import { Alert, IssueStatus } from "@prisma/client";
 import { skillMiddleware } from "./middlewares/skill";
 import { MemorySaver } from "@langchain/langgraph";
@@ -29,44 +29,42 @@ interface AnalysisResult {
 
 /**
  * Agent Runner - Runs LangChain agent to process alerts
+ * Each request should create a new instance to avoid state pollution
  */
 export class AgentRunner {
-  private model: ChatAnthropic | null = null;
+  private model: ChatAnthropic;
+  private agent: TAgent;
 
-  private agent: TAgent = null;
-
-  private getModel(): ChatAnthropic {
-    if (!this.model) {
-      const apiKey = process.env.ANTHROPIC_API_KEY;
-
-      if (!apiKey) {
-        throw new Error(
-          "ANTHROPIC_API_KEY environment variable is required for agent processing",
-        );
-      }
-
-      this.model = new ChatAnthropic({
-        model: "claude-sonnet-4-5-20250929",
-        temperature: 0,
-        apiKey,
-      });
-    }
-
-    return this.model;
+  public constructor() {
+    this.model = this.createModel();
+    this.agent = this.createAgent();
   }
 
-  private getAgent() {
-    if (!this.agent) {
-      this.agent = createAgent({
-        model: this.model || this.getModel(),
-        tools: [loadTool, callMcp, runCodeTool],
-        systemPrompt: this.buildSystemPrompt(),
-        middleware: [skillMiddleware],
-        checkpointer: new MemorySaver(),
-        log: this.logFn,
-      });
+  private createModel(): ChatAnthropic {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+
+    if (!apiKey) {
+      throw new Error(
+        "ANTHROPIC_API_KEY environment variable is required for agent processing",
+      );
     }
-    return this.agent;
+
+    return new ChatAnthropic({
+      model: "claude-sonnet-4-5-20250929",
+      temperature: 0,
+      apiKey,
+    });
+  }
+
+  private createAgent(): TAgent {
+    return createAgent({
+      model: this.model,
+      tools: [loadTool, callMcp, runCodeTool],
+      systemPrompt: systemPrompt,
+      middleware: [skillMiddleware],
+      checkpointer: new MemorySaver(),
+      log: this.logFn,
+    });
   }
 
   /**
@@ -105,27 +103,20 @@ export class AgentRunner {
 
   /**
    * Process alerts for a specific tenant
-   * Analyzes the provided alerts and creates issues
+   * Analyzes provided alerts and creates issues
    */
   async processTenantAlerts(alerts: Alert[]): Promise<AgentProcessingResult[]> {
     if (alerts.length === 0) {
       return [];
     }
 
-    // Step 1: Match skill to alerts
-    // const matchedSkill = await skillMatcher.matchSkills(alerts);
-
-    // Step 2: Get available tools for tenant
-    // const tools = await this.getTenantTools(alerts[0].tenantId);
-
     const threadId = uuid();
-
     const issueId = await this.createIssue(alerts, threadId);
 
-    // Step 3: Run LangChain agent to analyze
+    // Run LangChain agent to analyze
     const result = await this.invoke(alerts, threadId);
 
-    // Step 4: Update issue with analysis results
+    // Update issue with analysis results
     await prisma.issue.update({
       where: { id: issueId },
       data: {
@@ -158,9 +149,6 @@ export class AgentRunner {
     threadId: string,
   ): Promise<AnalysisResult> {
     try {
-      // Build system prompt
-      const systemPrompt = this.buildSystemPrompt();
-
       // Build user message with alert context
       const userMessage = this.buildAlertContext(alerts);
 
@@ -171,7 +159,7 @@ export class AgentRunner {
       ];
 
       // Invoke model with tools
-      const response = await this.getAgent().invoke(messages, {
+      const response = await this.agent!.invoke(messages, {
         configurable: {
           runId: threadId,
           context: {
@@ -257,13 +245,6 @@ export class AgentRunner {
   }
 
   /**
-   * Build system prompt for the agent
-   */
-  private buildSystemPrompt(): string {
-    return systemPrompt;
-  }
-
-  /**
    * Build alert context for the agent
    */
   private buildAlertContext(alerts: Alert[]): string {
@@ -329,5 +310,10 @@ ${alert.rawPayload ? `- Raw Data: ${JSON.stringify(alert.rawPayload)}` : ""}`;
   }
 }
 
-// Singleton instance
-export const agentRunner = new AgentRunner();
+/**
+ * Factory function to create a new AgentRunner instance
+ * Use this for each request to avoid state pollution
+ */
+export function createAgentRunner(): AgentRunner {
+  return new AgentRunner();
+}
