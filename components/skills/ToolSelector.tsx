@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Search, ChevronRight, Plug } from "lucide-react";
 import { cn } from "@/utils/utils";
 
@@ -29,16 +29,35 @@ export function ToolSelector({
   onClose,
 }: ToolSelectorProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const filteredTools = tools.filter((tool) =>
     tool.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
+
+  // Reset selected index when search query changes
+  useEffect(() => {
+    setSelectedIndex(0);
+  }, [searchQuery]);
 
   const handleSelectTool = (tool: Tool) => {
     onSelectTool(tool);
     setSearchQuery("");
     onClose();
   };
+
+  // Scroll selected item into view
+  useEffect(() => {
+    if (containerRef.current) {
+      const selectedButton = containerRef.current.children[
+        selectedIndex
+      ] as HTMLButtonElement;
+      if (selectedButton) {
+        selectedButton.scrollIntoView({ block: "nearest" });
+      }
+    }
+  }, [selectedIndex]);
 
   return (
     <>
@@ -60,6 +79,34 @@ export function ToolSelector({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => {
+              // Prevent default behavior for navigation keys
+              if (["ArrowUp", "ArrowDown", "Escape"].includes(e.key)) {
+                e.preventDefault();
+                e.stopPropagation();
+              }
+              console.log("handleKeydown", e.key, e);
+              if (filteredTools.length === 0) return;
+
+              switch (e.key) {
+                case "ArrowDown":
+                  setSelectedIndex((prev) =>
+                    prev < filteredTools.length - 1 ? prev + 1 : prev,
+                  );
+                  break;
+                case "ArrowUp":
+                  setSelectedIndex((prev) => (prev > 0 ? prev - 1 : 0));
+                  break;
+                case "Enter":
+                  if (filteredTools[selectedIndex]) {
+                    handleSelectTool(filteredTools[selectedIndex]);
+                  }
+                  break;
+                case "Escape":
+                  onClose();
+                  break;
+              }
+            }}
             placeholder="Search tools..."
             className="flex-1 bg-transparent border-none text-sm focus:outline-none"
             autoFocus
@@ -68,17 +115,24 @@ export function ToolSelector({
         </div>
 
         {/* Tool List */}
-        <div className="max-h-64 overflow-y-auto">
+        <div ref={containerRef} className="max-h-64 overflow-y-auto">
           {filteredTools.length === 0 ? (
             <div className="px-3 py-8 text-center text-sm text-muted-foreground">
               No tools found
             </div>
           ) : (
-            filteredTools.map((tool) => (
+            filteredTools.map((tool, index) => (
               <button
                 key={tool.id}
                 onClick={() => handleSelectTool(tool)}
-                className="w-full px-2 py-1.5 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors group cursor-pointer"
+                style={{
+                  ...(selectedIndex === index
+                    ? {
+                        backgroundColor: "#ddd",
+                      }
+                    : null),
+                }}
+                className="hover:bg-gray-50 w-full px-2 py-1.5 text-left border-b border-gray-100 last:border-b-0 transition-colors group cursor-pointer"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 min-w-0">

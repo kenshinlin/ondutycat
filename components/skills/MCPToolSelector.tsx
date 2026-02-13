@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ChevronRight, Loader2, AlertCircle, Plug } from "lucide-react";
 import { cn } from "@/utils/utils";
 
@@ -39,12 +39,19 @@ export function MCPToolSelector({
   position,
 }: MCPToolSelectorProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const filteredMcpTools = mcpTools.filter(
     (tool) =>
       tool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       tool.description.toLowerCase().includes(searchQuery.toLowerCase()),
   );
+
+  // Reset selected index when search query changes
+  useEffect(() => {
+    setSelectedIndex(0);
+  }, [searchQuery]);
 
   const handleSelectTool = (tool: MCPTool) => {
     onSelectTool(tool);
@@ -54,6 +61,18 @@ export function MCPToolSelector({
   const handleBack = () => {
     onBack();
   };
+
+  // Scroll selected item into view
+  useEffect(() => {
+    if (containerRef.current) {
+      const selectedButton = containerRef.current.children[
+        selectedIndex
+      ] as HTMLButtonElement;
+      if (selectedButton) {
+        selectedButton.scrollIntoView({ block: "nearest" });
+      }
+    }
+  }, [selectedIndex]);
 
   return (
     <>
@@ -77,8 +96,37 @@ export function MCPToolSelector({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  // Prevent default behavior for navigation keys
+                  if (["ArrowUp", "ArrowDown", "Escape"].includes(e.key)) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }
+
+                  if (filteredMcpTools.length === 0 || isLoading || error)
+                    return;
+
+                  switch (e.key) {
+                    case "ArrowDown":
+                      setSelectedIndex((prev) =>
+                        prev < filteredMcpTools.length - 1 ? prev + 1 : prev,
+                      );
+                      break;
+                    case "ArrowUp":
+                      setSelectedIndex((prev) => (prev > 0 ? prev - 1 : 0));
+                      break;
+                    case "Enter":
+                      if (filteredMcpTools[selectedIndex]) {
+                        handleSelectTool(filteredMcpTools[selectedIndex]);
+                      }
+                      break;
+                    case "Escape":
+                      handleBack();
+                      break;
+                  }
+                }}
                 placeholder={`Search ${selectedMCPTool?.name || "MCP"} tools...`}
-                className="flex-1 bg-transparent border-none text-sm focus:outline-none font-medium text-blue-900"
+                className="w-full flex-1 bg-transparent border-none text-sm focus:outline-none font-medium text-blue-900"
                 autoFocus
                 onClick={(e) => e.stopPropagation()}
               />
@@ -87,7 +135,7 @@ export function MCPToolSelector({
           {isLoading && <div className="w-4 h-4" />}
 
           {/* Tool List */}
-          <div className="max-h-64 overflow-y-auto">
+          <div ref={containerRef} className="max-h-64 overflow-y-auto">
             {isLoading ? (
               <div className="px-3 py-8 text-center text-sm text-muted-foreground flex flex-col items-center gap-2">
                 <Loader2 className="w-5 h-5 animate-spin" />
@@ -108,10 +156,17 @@ export function MCPToolSelector({
               filteredMcpTools.map((tool, idx) => (
                 <button
                   key={idx}
+                  style={{
+                    ...(selectedIndex === idx
+                      ? {
+                          backgroundColor: "#ddd",
+                        }
+                      : null),
+                  }}
                   onClick={() => handleSelectTool(tool)}
-                  className="w-full px-3 py-2 text-left hover:bg-blue-50 border-b border-gray-100 last:border-b-0 transition-colors group"
+                  className="w-full px-3 py-2 text-left border-b border-gray-100 last:border-b-0 transition-colors group hover:bg-blue-50"
                 >
-                  <div className="text-sm font-medium text-card-foreground group-hover:text-blue-700 transition-colors">
+                  <div className="text-sm font-medium text-card-foreground">
                     {tool.name}
                   </div>
                   {tool.description && (
